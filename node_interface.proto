@@ -1,0 +1,101 @@
+syntax = "proto3";
+import "metadata.proto";
+import "types.proto";
+
+package redcloud;
+
+/*
+RangeServingRequest describes a request to a data node to start serving a
+given range of a given table.
+*/
+message RangeServingRequest {
+  // table is the name of the table which is supposed to be loaded.
+  string table = 1;
+
+  /*
+  start_key is the first valid key which is covered by the range which is
+  being loaded.
+  */
+  bytes start_key = 2;
+
+  /*
+  end_key is the first key which is no longer covered by the range which is
+  being loaded. If this is empty, it represents the end of the table.
+  */
+  bytes end_key = 3;
+
+  // Relevant paths for all sstables which should be loaded.
+  repeated SSTablePathDescription paths = 4;
+}
+
+/*
+RangeReleaseRequest describes a request to a data node to stop serving a given
+range of a given table.
+*/
+message RangeReleaseRequest {
+  // table is the name of the table whose data is supposed to be unloaded.
+  string table = 1;
+
+  /*
+  start_key is the first valid key which is covered by the range which is
+  being loaded.
+  */
+  bytes start_key = 2;
+
+  /*
+  end_key is the first key which is no longer covered by the range which is
+  being loaded. If this is empty, it represents the end of the table.
+  */
+  bytes end_key = 3;
+}
+
+/*
+RangeReleaseResponse is sent in response to a RangeReleaseRequest and
+describes the sstables and journals of the unloaded tablet(s).
+*/
+message RangeReleaseResponse {
+  // Relevant paths for all sstables which have been unloaded.
+  repeated SSTablePathDescription paths = 1;
+}
+
+/*
+ServerStatus contains detailed information about the server load etc.
+*/
+message ServerStatus {
+    // Number of currently allocated bytes of heap memory.
+    uint64 heap_size = 1;
+
+    // Status port for looking at the web interface.
+    uint32 status_port = 2;
+}
+
+/*
+DataNodeMetadataService describes a set of RPCs exported to the red-cloud
+caretaker server by the data node.
+*/
+service DataNodeMetadataService {
+    /*
+    ServeRange requests to start serving a specific range of the table. May
+    fail, but otherwise it is assumed that the table/range will be served
+    from this node in the future.
+    */
+    rpc ServeRange (RangeServingRequest) returns (Empty) {}
+
+    /*
+    ReleaseRange requests to stop serving a specific range of a table and to
+    return pointers to all files associated with the range at the time
+    serving has stopped.
+    */
+    rpc ReleaseRange (RangeReleaseRequest) returns (RangeReleaseResponse) {}
+
+    /*
+    GetServerStatus determines and returns some information about the status
+    of the server.
+    */
+    rpc GetServerStatus (Empty) returns (ServerStatus) {}
+
+    /*
+    Ping provides simple ping functionality to check node availability.
+    */
+    rpc Ping (Empty) returns (Empty) {}
+}

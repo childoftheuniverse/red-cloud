@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package redcloud;
+
+/*
+Empty is an empty message. There's a similar definition in the protocol buffer
+base, but that doesn't seem to work with all protobuf compilers, so we have
+our own.
+*/
+message Empty {}
+
+/*
+Column contains information about data contained within a column.
+*/
+message Column {
+    enum ColumnContentType {
+        DATA = 0;
+        TOMBSTONE = 1;
+    }
+
+    /*
+    Type of the data contained in the column. In journals and minor sstables,
+    this might be set to TOMBSTONE to represent that data in the column has
+    been deleted.
+    */
+    ColumnContentType type = 1;
+
+    /*
+    timestamp describes the exact point in time, encoded as milliseconds,
+    when the datum has been written. This will be used both for expiry (see
+    ttl) and to determine the most current datum in the column.
+
+    Nonetheless, this field is filled in by the client because red-cloud
+    can't claim to know where the data came from.
+    */
+    int64 timestamp = 2;
+
+    /*
+    ttl describes the number of milliseconds this datum will be considered
+    valid. A compaction running after timestamp+ttl will discard this datum.
+    A ttl of 0 describes permanent data which will never expire.
+    */
+    int64 ttl = 3;
+
+    // content contains the data actually written to the column.
+    bytes content = 4;
+}
+
+/*
+ColumnSet is a list of data records for a single column within a single row.
+*/
+message ColumnSet {
+    // name contains the name of the column being represented.
+    string name = 1;
+
+    /*
+    A ColumnSet consists of a number of Columns. They represent different
+    versions of the data contained in the column.
+    */
+    repeated Column column = 2;
+}
+
+/*
+ColumnFamily contains all ColumnSet objects associated with a single row
+which belong to a single column family.
+*/
+message ColumnFamily {
+    // Row key to identify the row this ColumnFamily pertains to.
+    bytes key = 1;
+
+    // Many ColumnSets make a ColumnFamily.
+    repeated ColumnSet column_set = 2;
+}

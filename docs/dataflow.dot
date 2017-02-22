@@ -1,0 +1,15 @@
+digraph dataflow {
+  client [label="Client"];
+  journal [label="Journal"];
+  minor [label="Minor sstable"];
+  major [label="Major sstable"];
+
+  client -> journal [label="insert"];
+  journal -> minor [label="logsort"];
+  minor -> minor [label="minor compaction"];
+  minor -> major [label="major compaction"];
+
+  journal -> client [label="query"];
+  minor -> client [label="query"];
+  major -> client [label="query"];
+}

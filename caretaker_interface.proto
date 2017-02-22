@@ -1,0 +1,31 @@
+syntax = "proto3";
+import "metadata.proto";
+import "types.proto";
+
+package redcloud;
+
+/*
+TableName contains just the name of a table.
+*/
+message TableName {
+    // Name of the table the operation is performed on.
+    string name = 1;
+}
+
+/*
+AdminService contains methods for managing table metadata or perform other
+administrative operations.
+*/
+service AdminService {
+    // Create a new table with the specified metadata.
+    rpc CreateTable (TableMetadata) returns (Empty) {}
+
+    // Update an existing table with the specified metadata.
+    rpc UpdateTable (TableMetadata) returns (Empty) {}
+
+    /*
+    Delete a table; since this will unregister it from all data nodes,
+    this may take some time.
+    */
+    rpc DeleteTable (TableName) returns (Empty) {}
+}

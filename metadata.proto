@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package redcloud;
+
+/*
+SSTablePathDescription describes all paths holding data for the given
+table/key range.
+*/
+message SSTablePathDescription {
+    // Name of the column family which is covered.
+    string column_family = 1;
+
+    /*
+    Path to the major sstable holding the current compacted version of the
+    column family in the specified table.
+    */
+    string major_sstable_path = 2;
+
+    /*
+    Path to the minor sstable holding the current amended data of the column
+    family in the specified table.
+    */
+    string minor_sstable_path = 3;
+
+    /*
+    Path to all journal files containing further amendments of the minor
+    sstable which have not been (fully) compacted yet.
+    */
+    repeated string relevant_journal_paths = 4;
+
+    // Size of the major sstable on the most recent compaction.
+    int64 major_sstable_size = 5;
+
+    // Size of the minor sstable on the most recent compaction.
+    int64 minor_sstable_size = 6;
+}
+
+/*
+ServerTabletMetadata holds metadata for tablets, i.e. individual pieces of
+tables living on specific servers.
+*/
+message ServerTabletMetadata {
+    // The first key of the tablet.
+    bytes start_key = 1;
+
+    /*
+    The first key after the end of the tablet, or an empty byte string
+    if this is the last tablet of the table.
+    */
+    bytes end_key = 2;
+
+    /*
+    host currently holding the tablet. Please note that this may change
+    at any time.
+    */
+    string host = 3;
+
+    /*
+    Port the host currently holding the tablet is exporting the database
+    service on.
+    */
+    int32 port = 4;
+
+    /*
+    Optional path to the sstable file holding the table data, so future
+    data nodes can pick it up.
+    */
+    repeated SSTablePathDescription sstable_path = 5;
+}
+
+/*
+ColumnFamilyMetadata holds metadata for an individual column family. Only
+column families which have a ColumnFamilyMetadata record will be considered
+as existent.
+*/
+message ColumnFamilyMetadata {
+    // Name of the column family registered.
+    string name = 1;
+}
+
+/*
+TableMetadata holds table metadata for redcloud tables. This is the
+user-specified part of the table metadata.
+*/
+message TableMetadata {
+    // The name of the table.
+    string name = 1;
+
+    /*
+    Desired size after which tablets should be split.
+    If unspecified, defaults to 128 MB.
+    */
+    int64 split_size = 2;
+
+    /*
+    Maximum number of versions to keep of each cell. If 0, cells will never
+    be expired automatically based on the number of them.
+    */
+    int64 max_versions = 3;
+
+    /*
+    Maximum age, in milliseconds, of older versions of cells, i.e. the ones
+    which do not have the highest insertion time stamp. If 0, old versions
+    are not expired based on age.
+    */
+    int64 max_version_age = 4;
+
+    /*
+    Path the files will be stored under. Changes to this value will only take
+    effect gradually when tablets are reloaded.
+    */
+    string path_prefix = 5;
+
+    // List of all column families configured for the table.
+    repeated ColumnFamilyMetadata column_family = 6;
+}
+
+/*
+ServerTableMetadata holds Server-side table metadata for redcloud tables.
+*/
+message ServerTableMetadata {
+    // The name of the table, for identifying it.
+    string name = 1;
+
+    // Table metadata associated with the table.
+    TableMetadata table_md = 2;
+
+    /*
+    List of all tablets associated with this table and the servers they
+    are loaded on.
+    */
+    repeated ServerTabletMetadata tablet = 3;
+}

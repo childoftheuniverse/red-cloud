@@ -1,0 +1,122 @@
+syntax = "proto3";
+import "types.proto";
+
+package redcloud;
+
+/*
+GetRequest formulates a request for fetching a single individual key.
+*/
+message GetRequest {
+  // Key of the row to be fetched from the database.
+  bytes key = 1;
+
+  // Name of the table which data is being extracted from.
+  string table = 2;
+
+  // Name of the column family the data is stored at.
+  string column_family = 3;
+
+  // Name of the specific column being referred to.
+  string column = 4;
+}
+
+/*
+ColumnRange describes a range of column names to be operated on.
+*/
+message ColumnRange {
+    // Name of the first column to be returned.
+    string start_column = 1;
+
+    /*
+    Name of the first column that should not be returned anymore, or an empty
+    string to operate on all columns following StartColumn.
+    */
+    string end_column = 2;
+}
+
+/*
+GetRangeRequest describes a request for data for a key range from a number
+(or range) of columns. All data matching the criteria will be streamed back
+to the client.
+*/
+message GetRangeRequest {
+    // Key of the first record to be returned.
+    bytes start_key = 1;
+
+    /*
+    Key of the first record that shall no longer be returned; if empty, all
+    keys after the start key will be returned.
+    */
+    bytes end_key = 2;
+
+    // Name of the table which the data is being extracted from.
+    string table = 3;
+
+    /*
+    Name of the column family the data is stored at. Data can only be
+    requested from a single column family at a time.
+    */
+    string column_family = 4;
+
+    // List of the names of all columns affected.
+    repeated string column = 5;
+
+    /*
+    Minimum timestamp to be taken into account for returning, or 0.
+    Please note that no number of affected timestamps filtering can be done
+    on the data node.
+    */
+    int64 min_timestamp = 6;
+
+    // Maximum timestamp to be taken into account, or 0.
+    int64 max_timestamp = 7;
+
+    /*
+    Maximum number of results which will be returned from each data node.
+    There will be no ordering of results, probably, so this is mostly a
+    sanity check mechanism to prevent excessive load. Setting this to 0
+    will disable any limits.
+    */
+    int64 max_results = 8;
+}
+
+/*
+InsertRequest describes a request to insert a specific value for the specified
+key; the timestamp and TTL will be preserved.
+*/
+message InsertRequest {
+    // Key of the row which shall be updated.
+    bytes key = 1;
+
+    // Name of the table to mutate.
+    string table = 2;
+
+    // Name of the column family to mutate.
+    string column_family = 3;
+
+    // Name of the column to insert.
+    string column_name = 4;
+
+    // Column value to insert into the data stream.
+    Column column = 5;
+}
+
+/*
+DataNodeService provides client side RPCs exported by data nodes.
+*/
+service DataNodeService {
+  /*
+  Request an individual data cell from the database. If multiple versions of
+  the cell exist, only the latest version will be returned.
+  */
+  rpc Get (GetRequest) returns (Column) {}
+
+  /*
+  Request a range of data from the database. This will return all matching
+  versions of all matching data on the database.
+  */
+  rpc GetRange (GetRangeRequest) returns (stream ColumnSet) {}
+
+  // Set a very specific data cell to the specified value.
+  rpc Insert (InsertRequest) returns (Empty) {}
+}
