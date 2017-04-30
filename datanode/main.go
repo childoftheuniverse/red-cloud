@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
+	"github.com/childoftheuniverse/filesystem"
 	_ "github.com/childoftheuniverse/filesystem-file"
+	rados "github.com/childoftheuniverse/filesystem-rados"
 	"github.com/childoftheuniverse/red-cloud"
 	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
@@ -20,6 +22,8 @@ import (
 func main() {
 	var portExporter *exporter.ServiceExporter
 	var etcdServers, instanceName, thisHost, hostName string
+	var radosConfig, radosCluster, radosUser string
+	var wantRados bool
 	var ourAddr, statusAddr *net.TCPAddr
 	var rangeRegistry *ServingRangeRegistry
 	var statusServer *StatusWebService
@@ -65,6 +69,17 @@ func main() {
 	flag.StringVar(&bootstrapCSSHash, "bootstrap-css-hash",
 		"sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u",
 		"Hash to verify the integrity of the bootstrap CSS hash")
+
+	// Rados specific configuration flags.
+	flag.StringVar(&radosConfig, "rados-config", "",
+		"Path to a Rados client configuration file. If unset, the default file "+
+		"will be read")
+	flag.StringVar(&radosCluster, "rados-cluster", "",
+		"Name of the Rados cluster in the configuration file to use")
+	flag.StringVar(&radosUser, "rados-user", "",
+		"Name of the user to use for accessing Rados")
+	flag.BoolVar(&wantRados, "want-rados", false,
+		"Fail startup if Rados cannot be configured")
 	flag.Parse()
 
 	startupDeadline = time.Now().Add(startupWait)
@@ -72,6 +87,28 @@ func main() {
 	// Connect to etcd.
 	if etcdClient, err = etcd.NewFromURL(etcdServers); err != nil {
 		log.Fatalf("Cannot connect to etcd %s: %s", etcdServers, err)
+	}
+
+	// Check for a request to set up Rados in a non-default way.
+	if radosConfig != "" {
+		if radosUser != "" {
+			if radosCluster != "" {
+				err = rados.RegisterRadosConfigWithClusterAndUser(
+					radosConfig, radosCluster, radosUser)
+			} else {
+				err = rados.RegisterRadosConfigWithUser(radosConfig, radosUser)
+			}
+		} else {
+			err = rados.RegisterRadosConfig(radosConfig)
+		}
+
+		if err != nil {
+			log.Print("Error initializing Rados client: ", err)
+		}
+	}
+
+	if wantRados && !filesystem.HasImplementation("rados") {
+		log.Fatal("Rados requested but Rados initialization failed")
 	}
 
 	// Set up local RPC server to listen on.
