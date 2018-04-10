@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
 	"github.com/childoftheuniverse/filesystem"
 	_ "github.com/childoftheuniverse/filesystem-file"
 	rados "github.com/childoftheuniverse/filesystem-rados"
 	"github.com/childoftheuniverse/red-cloud"
 	etcd "github.com/coreos/etcd/clientv3"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -73,7 +73,7 @@ func main() {
 	// Rados specific configuration flags.
 	flag.StringVar(&radosConfig, "rados-config", "",
 		"Path to a Rados client configuration file. If unset, the default file "+
-		"will be read")
+			"will be read")
 	flag.StringVar(&radosCluster, "rados-cluster", "",
 		"Name of the Rados cluster in the configuration file to use")
 	flag.StringVar(&radosUser, "rados-user", "",

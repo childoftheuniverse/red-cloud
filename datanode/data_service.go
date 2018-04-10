@@ -3,12 +3,12 @@ package main
 import (
 	"strings"
 
+	"context"
 	"github.com/childoftheuniverse/recordio"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
 	"github.com/childoftheuniverse/red-cloud/storage"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )

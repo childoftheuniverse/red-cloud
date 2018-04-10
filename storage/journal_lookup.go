@@ -5,11 +5,11 @@ import (
 	"net/url"
 	"sort"
 
+	"context"
 	"github.com/childoftheuniverse/filesystem"
 	"github.com/childoftheuniverse/recordio"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
-	"golang.org/x/net/context"
 )
 
 func markDone(done chan bool) {

@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
 	"github.com/childoftheuniverse/red-cloud"
 	etcd "github.com/coreos/etcd/clientv3"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 

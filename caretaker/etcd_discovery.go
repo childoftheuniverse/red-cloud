@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"github.com/childoftheuniverse/etcd-discovery"
 	etcd "github.com/coreos/etcd/clientv3"
-	"golang.org/x/net/context"
 )
 
 /*

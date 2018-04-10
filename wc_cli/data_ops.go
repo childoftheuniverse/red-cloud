@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
+	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/client"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
 )
 
 /*

@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
 )
 
 /*

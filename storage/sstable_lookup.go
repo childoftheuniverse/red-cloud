@@ -5,11 +5,11 @@ import (
 	"net/url"
 	"sort"
 
+	"context"
 	"github.com/childoftheuniverse/filesystem"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
 	"github.com/childoftheuniverse/sstable"
-	"golang.org/x/net/context"
 )
 
 /*

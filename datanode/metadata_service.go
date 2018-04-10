@@ -3,8 +3,8 @@ package main
 import (
 	"runtime"
 
+	"context"
 	"github.com/childoftheuniverse/red-cloud"
-	"golang.org/x/net/context"
 )
 
 /*

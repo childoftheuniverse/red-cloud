@@ -1,10 +1,10 @@
 package client
 
 import (
+	"context"
 	discovery "github.com/childoftheuniverse/etcd-discovery"
 	"github.com/childoftheuniverse/red-cloud/common"
 	etcd "github.com/coreos/etcd/clientv3"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"context"
 	"github.com/childoftheuniverse/filesystem"
 	"github.com/childoftheuniverse/filesystem-internal"
 	"github.com/childoftheuniverse/recordio"
@@ -22,7 +23,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
 )
 
 var logSortsInProgress = expvar.NewInt("log-sorts-in-progress")
