@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
-	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
 	etcd "github.com/coreos/etcd/clientv3"
@@ -66,6 +66,11 @@ func (adm *AdminService) CreateTable(
 
 	if md.TableMd.SplitSize <= 0 {
 		md.TableMd.SplitSize = 128 * 1048576
+	}
+
+	if md.TableMd.DataUsage == redcloud.DataUsage_UNKNOWN {
+		return &redcloud.Empty{}, grpc.Errorf(codes.InvalidArgument,
+			"Created table is missing data_usage declaration, please add")
 	}
 
 	if encData, err = proto.Marshal(md); err != nil {

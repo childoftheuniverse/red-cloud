@@ -3,6 +3,20 @@ syntax = "proto3";
 package redcloud;
 
 /*
+Declaration of the type of data contained in a table.
+*/
+enum DataUsage {
+  /* Missing data usage declaration */
+  UNKNOWN = 0;
+
+  /* Table contains SPI */
+  SENSITIVE_PERSONAL_INFORMATION = 1;
+
+  /* Table contains internal business data that is not SPI */
+  INTERNAL_BUSINESS_DATA = 2;
+}
+
+/*
 SSTablePathDescription describes all paths holding data for the given
 table/key range.
 */
@@ -111,8 +125,15 @@ message TableMetadata {
     */
     string path_prefix = 5;
 
-    // List of all column families configured for the table.
+    /*
+    List of all column families configured for the table.
+    */
     repeated ColumnFamilyMetadata column_family = 6;
+
+    /*
+    Declaration of the type of data contained in the table.
+    */
+    DataUsage data_usage = 7;
 }
 
 /*
