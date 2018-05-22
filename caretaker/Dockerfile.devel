@@ -1,0 +1,10 @@
+FROM ubuntu:artful
+LABEL maintainer Child of the Universe <childoftheuniverse@protonmail.com>
+
+RUN apt-get -q -y update && apt-get -q -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --purge install librados2
+COPY caretaker /go/bin/caretaker
+
+RUN ["/usr/sbin/adduser", "--system", "--home", "/nonexistent", "--no-create-home", "--gecos", "Red Cloud Caretaker", "--group", "--disabled-password", "caretaker"]
+VOLUME ["/tls", "/ca"]
+USER caretaker
+ENTRYPOINT ["/go/bin/caretaker"]

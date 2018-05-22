@@ -1,0 +1,10 @@
+FROM ubuntu:artful
+LABEL maintainer Child of the Universe <childoftheuniverse@protonmail.com>
+
+RUN apt-get -q -y update && apt-get -q -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --purge install librados2
+COPY datanode /go/bin/datanode
+
+RUN ["/usr/sbin/adduser", "--system", "--home", "/nonexistent", "--no-create-home", "--gecos", "Red Cloud Data Node", "--group", "--disabled-password", "datanode"]
+VOLUME ["/etc/ceph", "/tls", "/ca"]
+USER datanode
+ENTRYPOINT ["/go/bin/datanode"]
