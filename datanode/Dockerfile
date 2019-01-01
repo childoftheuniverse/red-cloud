@@ -2,6 +2,7 @@ FROM golang:1.10
 LABEL maintainer Child of the Universe <childoftheuniverse@protonmail.com>
 
 # Set up protocol buffer compile pipeline
+RUN echo deb http://deb.debian.org/debian buster main > /etc/apt/sources.list.d/buster.list
 RUN apt-get -q -y update && apt-get -q -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --purge install gcc libc-dev protobuf-compiler librados-dev
 RUN go get github.com/golang/protobuf/protoc-gen-go
 
