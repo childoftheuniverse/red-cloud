@@ -117,8 +117,8 @@ func main() {
 		var listenTo string
 
 		ctx, _ = context.WithDeadline(context.Background(), startupDeadline)
-		if portExporter, err = exporter.NewExporterFromClient(ctx, etcdClient,
-			etcdTTL); err != nil {
+		if portExporter, err = exporter.NewExporterFromClient(
+			ctx, etcdClient, etcdClient, etcdTTL); err != nil {
 			log.Fatal("Cannot create etcd port exporter: ", err)
 		}
 
