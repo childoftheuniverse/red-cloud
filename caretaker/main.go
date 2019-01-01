@@ -12,7 +12,7 @@ import (
 	"context"
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
 	"github.com/childoftheuniverse/red-cloud"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
 )
 

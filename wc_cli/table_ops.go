@@ -8,8 +8,8 @@ import (
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/client"
 	"github.com/childoftheuniverse/red-cloud/common"
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/mvcc/mvccpb"
+	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 )

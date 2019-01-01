@@ -15,7 +15,7 @@ import (
 	_ "github.com/childoftheuniverse/filesystem-file"
 	rados "github.com/childoftheuniverse/filesystem-rados"
 	"github.com/childoftheuniverse/red-cloud"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
 )
 

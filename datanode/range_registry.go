@@ -20,8 +20,8 @@ import (
 	"github.com/childoftheuniverse/red-cloud/common"
 	"github.com/childoftheuniverse/red-cloud/storage"
 	"github.com/childoftheuniverse/sstable"
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/mvcc/mvccpb"
+	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 	"github.com/golang/protobuf/proto"
 )
 

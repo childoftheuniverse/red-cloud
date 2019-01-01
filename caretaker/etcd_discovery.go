@@ -9,7 +9,7 @@ import (
 
 	"context"
 	"github.com/childoftheuniverse/etcd-discovery"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 /*

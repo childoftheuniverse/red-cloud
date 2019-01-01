@@ -4,7 +4,7 @@ import (
 	"context"
 	discovery "github.com/childoftheuniverse/etcd-discovery"
 	"github.com/childoftheuniverse/red-cloud/common"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
 )
 

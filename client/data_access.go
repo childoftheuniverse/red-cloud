@@ -11,7 +11,7 @@ import (
 	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 )
