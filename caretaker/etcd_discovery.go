@@ -35,7 +35,7 @@ func NewEtcdExportedNodeDiscoveryStrategy(dnr *DataNodeRegistry,
 		dnr:        dnr,
 		etcdClient: etcdClient,
 	}
-	discovery.MonitorExportedService(etcdClient, fmt.Sprintf(
+	discovery.MonitorExportedService(etcdClient, etcdClient, fmt.Sprintf(
 		"/ns/service/red-cloud/%s/data-node/", instance), strategy)
 	return strategy
 }
@@ -85,4 +85,11 @@ exit code.
 */
 func (s *EtcdExportedNodeDiscoveryStrategy) ReportFatal(err error) {
 	log.Fatal("Fatal error from etcd discovery: ", err)
+}
+
+/*
+ReportCancelled reports that the watcher object has ceased to be active.
+*/
+func (s *EtcdExportedNodeDiscoveryStrategy) ReportCancelled() {
+	/* TODO: probably do something here? */
 }

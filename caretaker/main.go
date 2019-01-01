@@ -101,7 +101,7 @@ func main() {
 
 		ctx, _ = context.WithDeadline(context.Background(), startupDeadline)
 		if exportedService, err = exporter.NewExporterFromClient(
-			ctx, etcdClient, etcdTTL); err != nil {
+			ctx, etcdClient, etcdClient, etcdTTL); err != nil {
 			log.Fatal("Cannot create etcd port exporter: ", err)
 		}
 
