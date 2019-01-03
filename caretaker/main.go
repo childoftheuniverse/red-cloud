@@ -1,19 +1,23 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"context"
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
 	"github.com/childoftheuniverse/red-cloud"
+	"github.com/childoftheuniverse/tlsconfig"
 	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -24,12 +28,21 @@ func main() {
 	var nodeRegistry *DataNodeRegistry
 	var admin *AdminService
 	var etcdClient *etcd.Client
+	var etcdTimeout time.Duration
+	var etcdConfig etcd.Config
 	var srv *grpc.Server
 	var maxMsgSize int
 	var exportPort bool
 	var startupWait time.Duration
 	var startupDeadline time.Time
 	var bootstrapCSSPath, bootstrapCSSHash string
+
+	var privateKeyPath string
+	var certificatePath string
+	var caPath string
+	var tlsConfig *tls.Config
+	var grpcOptions []grpc.ServerOption
+
 	var l net.Listener
 	var etcdTTL int64
 	var port, statusPort int
@@ -41,7 +54,9 @@ func main() {
 	}
 
 	flag.StringVar(&etcdServers, "etcd-servers", "",
-		"etcd URL to get a server list from")
+		"List of etcd servers to connect to")
+	flag.DurationVar(&etcdTimeout, "etcd-timeout", 30*time.Second,
+		"Timeout for etcd connection")
 	flag.StringVar(&instanceName, "instance", "test",
 		"Name of the red-cloud instance being run")
 	flag.StringVar(&hostName, "host", thisHost,
@@ -68,16 +83,40 @@ func main() {
 		"Hash to verify the integrity of the bootstrap CSS hash")
 	flag.DurationVar(&startupWait, "startup-deadline", 20*time.Second,
 		"Number of seconds to wait on remote operations during startup")
+
+	// TLS authentication settings.
+	flag.StringVar(&privateKeyPath, "private-key", "",
+		"Path to the TLS private key file (PEM format). Empty disables TLS.")
+	flag.StringVar(&certificatePath, "server-certificate", "",
+		"Path to the TLS server certificate file (PEM format). Empty disables TLS.")
+	flag.StringVar(&caPath, "ca", "",
+		"Path to the TLS CA certificate file (PEM format). "+
+			"Empty disables client authentication.")
 	flag.Parse()
 
 	startupDeadline = time.Now().Add(startupWait)
 
-	// Connect to etcd.
-	if etcdClient, err = etcd.NewFromURL(etcdServers); err != nil {
-		log.Fatalf("Cannot connect to etcd %s: %s", etcdServers, err)
+	if certificatePath != "" && privateKeyPath != "" && caPath != "" {
+		if tlsConfig, err = tlsconfig.TLSConfigWithRootAndClientCAAndCert(
+			caPath, caPath, certificatePath, privateKeyPath); err != nil {
+			log.Fatal("Unable to initialize TLS context: ", err)
+		}
 	}
 
-	nodeRegistry = NewDataNodeRegistry(etcdClient, instanceName)
+	etcdConfig.Endpoints = strings.Split(etcdServers, ",")
+	etcdConfig.DialTimeout = etcdTimeout
+
+	if tlsConfig != nil {
+		etcdConfig.TLS = tlsConfig
+	}
+
+	// Connect to etcd.
+	if etcdClient, err = etcd.New(etcdConfig); err != nil {
+		log.Fatalf("Cannot connect to etcd %s: %s", etcdServers, err)
+	}
+	defer etcdClient.Close()
+
+	nodeRegistry = NewDataNodeRegistry(etcdClient, tlsConfig, instanceName)
 	admin = NewAdminService(etcdClient, nodeRegistry)
 	statusServer = NewStatusWebService(
 		bootstrapCSSPath, bootstrapCSSHash, nodeRegistry)
@@ -135,7 +174,13 @@ func main() {
 			", this will never find any data nodes")
 	}
 
-	srv = grpc.NewServer(grpc.MaxMsgSize(maxMsgSize))
+	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(maxMsgSize))
+
+	if tlsConfig != nil {
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+
+	srv = grpc.NewServer(grpcOptions...)
 	redcloud.RegisterAdminServiceServer(srv, admin)
 	if err = srv.Serve(l); err != nil {
 		log.Fatalf("Error listening to %s: %s", l.Addr(), err)

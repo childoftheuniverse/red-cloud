@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -12,11 +13,12 @@ import (
 	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
+	"github.com/golang/protobuf/proto"
 	etcd "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 )
 
 /*
@@ -154,6 +156,7 @@ unloaded and pushed off to other data nodes in case of overload.
 */
 type DataNodeRegistry struct {
 	knownNodes map[string]*DataNode
+	tlsConfig  *tls.Config
 	etcdClient *etcd.Client
 	alive      NodeSlice
 	missing    NodeSlice
@@ -166,9 +169,12 @@ NewDataNodeRegistry creates a new instance of a DataNodeRegistry
 and returns it to the caller.
 */
 func NewDataNodeRegistry(
-	etcdClient *etcd.Client, instance string) *DataNodeRegistry {
+	etcdClient *etcd.Client,
+	tlsConfig *tls.Config,
+	instance string) *DataNodeRegistry {
 	var rv = &DataNodeRegistry{
 		etcdClient: etcdClient,
+		tlsConfig:  tlsConfig,
 		instance:   instance,
 		knownNodes: make(map[string]*DataNode),
 	}
@@ -183,6 +189,7 @@ established.
 func (r *DataNodeRegistry) Add(ctx context.Context, proto, tgt string) error {
 	var ts *DataNode
 	var tsc redcloud.DataNodeMetadataServiceClient
+	var dialOpts []grpc.DialOption
 	var status *redcloud.ServerStatus
 	var client *grpc.ClientConn
 	var statusAddr string
@@ -194,8 +201,14 @@ func (r *DataNodeRegistry) Add(ctx context.Context, proto, tgt string) error {
 		return nil
 	}
 
-	// TODO: use actual credentials.
-	if client, err = grpc.Dial(tgt, grpc.WithInsecure()); err != nil {
+	if r.tlsConfig == nil {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	} else {
+		var tlsCreds credentials.TransportCredentials = credentials.NewTLS(
+			r.tlsConfig)
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
+	}
+	if client, err = grpc.Dial(tgt, dialOpts...); err != nil {
 		return err
 	}
 	tsc = redcloud.NewDataNodeMetadataServiceClient(client)

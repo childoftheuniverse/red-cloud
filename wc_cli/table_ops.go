@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
-	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/client"
 	"github.com/childoftheuniverse/red-cloud/common"
@@ -25,7 +25,7 @@ func (c *RedCloudCLI) CreateTable(
 	var err error
 
 	if conn, err = client.GetMasterConnection(
-		ctx, c.etcdClient, path); err != nil {
+		ctx, c.tlsConfig, c.etcdClient, path); err != nil {
 		log.Fatal("Error connecting to instance master for ", path, ": ", err)
 	}
 
@@ -53,7 +53,7 @@ func (c *RedCloudCLI) UpdateTable(
 	var err error
 
 	if conn, err = client.GetMasterConnection(
-		ctx, c.etcdClient, path); err != nil {
+		ctx, c.tlsConfig, c.etcdClient, path); err != nil {
 		log.Fatal("Error connecting to instance master for ", path, ": ", err)
 	}
 
@@ -111,7 +111,7 @@ func (c *RedCloudCLI) DeleteTable(ctx context.Context, path string) {
 	var conn *grpc.ClientConn
 
 	if conn, err = client.GetMasterConnection(
-		ctx, c.etcdClient, path); err != nil {
+		ctx, c.tlsConfig, c.etcdClient, path); err != nil {
 		log.Fatal("Error connecting to instance master for ", path, ": ", err)
 	}
 

@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -8,12 +10,12 @@ import (
 	"strconv"
 	"sync"
 
-	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
 	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 /*
@@ -36,6 +38,7 @@ discovery and other related algorithms.
 type DataAccessClient struct {
 	instance   string
 	etcdClient *etcd.Client
+	tlsConfig  *tls.Config
 	lock       sync.RWMutex
 
 	/*
@@ -53,10 +56,13 @@ type DataAccessClient struct {
 NewDataAccessClient creates a new DataAccessClient.
 */
 func NewDataAccessClient(
-	instance string, etcdClient *etcd.Client) *DataAccessClient {
+	instance string,
+	etcdClient *etcd.Client,
+	tlsConfig *tls.Config) *DataAccessClient {
 	var rv = &DataAccessClient{
 		instance:           instance,
 		etcdClient:         etcdClient,
+		tlsConfig:          tlsConfig,
 		dataNodeRangeCache: make(map[string][]*krClientConn),
 		clientConnCache:    make(map[string]*grpc.ClientConn),
 	}
@@ -70,6 +76,7 @@ parts of the specified key range.
 func (d *DataAccessClient) getRangeClients(
 	ctx context.Context, table string, keyRange *common.KeyRange,
 	forceFetch bool) ([]*grpc.ClientConn, error) {
+	var dialOpts []grpc.DialOption
 	var resp *etcd.GetResponse
 	var rangeClients []*krClientConn
 	var md *redcloud.ServerTableMetadata
@@ -77,6 +84,13 @@ func (d *DataAccessClient) getRangeClients(
 	var rv = make([]*grpc.ClientConn, 0)
 	var ok bool
 	var err error
+
+  if d.tlsConfig == nil {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(
+			credentials.NewTLS(d.tlsConfig)))
+	}
 
 	if !forceFetch {
 		d.lock.RLock()
@@ -126,9 +140,7 @@ func (d *DataAccessClient) getRangeClients(
 		var client *grpc.ClientConn
 
 		if client, ok = d.clientConnCache[hostPort]; !ok {
-			// TODO: use actual credentials
-			if client, err = grpc.Dial(
-				hostPort, grpc.WithInsecure()); err != nil {
+			if client, err = grpc.Dial(hostPort, dialOpts...); err != nil {
 				return []*grpc.ClientConn{}, err
 			}
 		}
@@ -152,8 +164,8 @@ Get requests the latest version of a single key of data from the specified
 column path (table, row, column family, column).
 */
 func (d *DataAccessClient) Get(
-	ctx context.Context, req *redcloud.GetRequest, opts ...grpc.CallOption) (
-	*redcloud.Column, error) {
+	ctx context.Context, req *redcloud.GetRequest,
+	opts ...grpc.CallOption) (*redcloud.Column, error) {
 	// The key range is just 1 key wide.
 	var kr = common.NewKeyRange(req.Key, req.Key)
 	var conns []*grpc.ClientConn

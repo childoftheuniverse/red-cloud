@@ -5,6 +5,8 @@ red-cloud functions.
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -12,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"context"
 	"github.com/childoftheuniverse/red-cloud"
+	"github.com/childoftheuniverse/tlsconfig"
 	etcd "go.etcd.io/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
 )
@@ -24,6 +26,7 @@ properties between the different commands.
 */
 type RedCloudCLI struct {
 	etcdClient *etcd.Client
+	tlsConfig *tls.Config
 }
 
 func usage() {
@@ -62,7 +65,15 @@ func main() {
 	var cli *RedCloudCLI
 	var etcdServers string
 	var etcdClient *etcd.Client
+	var etcdTimeout time.Duration
+	var etcdConfig etcd.Config
 	var timeout time.Duration
+
+	var privateKeyPath string
+	var certificatePath string
+	var caPath string
+	var tlsConfig *tls.Config
+
 	var ctx context.Context
 	var verbose bool
 	var flags []string
@@ -70,11 +81,20 @@ func main() {
 	var err error
 
 	flag.StringVar(&etcdServers, "etcd-servers", "",
-		"etcd URL to get a server list from")
+		"List of etcd servers to connect to")
+	flag.DurationVar(&etcdTimeout, "etcd-timeout", 30*time.Second,
+		"Timeout for etcd connection")
 	flag.DurationVar(&timeout, "timeout", 30*time.Second,
 		"Maximum time to allow for operations to finish")
 	flag.BoolVar(&verbose, "verbose", false,
 		"Print additional information about the operation progress")
+	flag.StringVar(&privateKeyPath, "private-key", "",
+		"Path to the TLS private key file (PEM format). Empty disables TLS.")
+	flag.StringVar(&certificatePath, "client-certificate", "",
+		"Path to the TLS server certificate file (PEM format). Empty disables TLS.")
+	flag.StringVar(&caPath, "ca", "",
+		"Path to the TLS CA certificate file (PEM format). "+
+			"Empty disables client authentication.")
 	flag.Parse()
 	flags = flag.Args()
 
@@ -85,13 +105,29 @@ func main() {
 	cmd = flags[0]
 	flags = flags[1:]
 
+	if certificatePath != "" && privateKeyPath != "" && caPath != "" {
+		if tlsConfig, err = tlsconfig.TLSConfigWithRootAndClientCAAndCert(
+			caPath, caPath, certificatePath, privateKeyPath); err != nil {
+			log.Fatal("Unable to initialize TLS context: ", err)
+		}
+	}
+
+	etcdConfig.Endpoints = strings.Split(etcdServers, ",")
+	etcdConfig.DialTimeout = etcdTimeout
+
+	if tlsConfig != nil {
+		etcdConfig.TLS = tlsConfig
+	}
+
 	// Connect to etcd.
-	if etcdClient, err = etcd.NewFromURL(etcdServers); err != nil {
+	if etcdClient, err = etcd.New(etcdConfig); err != nil {
 		log.Fatalf("Cannot connect to etcd %s: %s", etcdServers, err)
 	}
+	defer etcdClient.Close()
 
 	cli = &RedCloudCLI{
 		etcdClient: etcdClient,
+		tlsConfig:  tlsConfig,
 	}
 
 	if timeout.Nanoseconds() == 0 {

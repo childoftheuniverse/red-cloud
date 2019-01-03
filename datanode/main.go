@@ -1,12 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"context"
@@ -15,8 +17,10 @@ import (
 	_ "github.com/childoftheuniverse/filesystem-file"
 	rados "github.com/childoftheuniverse/filesystem-rados"
 	"github.com/childoftheuniverse/red-cloud"
+	"github.com/childoftheuniverse/tlsconfig"
 	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -30,8 +34,17 @@ func main() {
 	var dns *DataNodeService
 	var ms *DataNodeMetadataService
 	var etcdClient *etcd.Client
+	var etcdTimeout time.Duration
+	var etcdConfig etcd.Config
 	var srv *grpc.Server
 	var maxMsgSize int
+
+	var privateKeyPath string
+	var certificatePath string
+	var caPath string
+	var tlsConfig *tls.Config
+	var grpcOptions []grpc.ServerOption
+
 	var l, sl net.Listener
 	var startupWait time.Duration
 	var startupDeadline time.Time
@@ -46,7 +59,9 @@ func main() {
 	}
 
 	flag.StringVar(&etcdServers, "etcd-servers", "",
-		"etcd URL to get a server list from")
+		"List of etcd servers to connect to")
+	flag.DurationVar(&etcdTimeout, "etcd-timeout", 30*time.Second,
+		"Timeout for etcd connection")
 	flag.StringVar(&instanceName, "instance", "test",
 		"Name of the red-cloud instance being run")
 	flag.StringVar(&hostName, "host", thisHost,
@@ -70,6 +85,15 @@ func main() {
 		"sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u",
 		"Hash to verify the integrity of the bootstrap CSS hash")
 
+	// TLS authentication settings.
+	flag.StringVar(&privateKeyPath, "private-key", "",
+		"Path to the TLS private key file (PEM format). Empty disables TLS.")
+	flag.StringVar(&certificatePath, "server-certificate", "",
+		"Path to the TLS server certificate file (PEM format). Empty disables TLS.")
+	flag.StringVar(&caPath, "ca", "",
+		"Path to the TLS CA certificate file (PEM format). "+
+			"Empty disables client authentication.")
+
 	// Rados specific configuration flags.
 	flag.StringVar(&radosConfig, "rados-config", "",
 		"Path to a Rados client configuration file. If unset, the default file "+
@@ -84,10 +108,25 @@ func main() {
 
 	startupDeadline = time.Now().Add(startupWait)
 
+	if certificatePath != "" && privateKeyPath != "" && caPath != "" {
+		if tlsConfig, err = tlsconfig.TLSConfigWithRootAndClientCAAndCert(
+			caPath, caPath, certificatePath, privateKeyPath); err != nil {
+			log.Fatal("Unable to initialize TLS context: ", err)
+		}
+	}
+
+	etcdConfig.Endpoints = strings.Split(etcdServers, ",")
+	etcdConfig.DialTimeout = etcdTimeout
+
+	if tlsConfig != nil {
+		etcdConfig.TLS = tlsConfig
+	}
+
 	// Connect to etcd.
-	if etcdClient, err = etcd.NewFromURL(etcdServers); err != nil {
+	if etcdClient, err = etcd.New(etcdConfig); err != nil {
 		log.Fatalf("Cannot connect to etcd %s: %s", etcdServers, err)
 	}
+	defer etcdClient.Close()
 
 	// Check for a request to set up Rados in a non-default way.
 	if radosConfig != "" {
@@ -184,7 +223,13 @@ func main() {
 	http.Handle("/", statusServer)
 	go http.Serve(sl, nil)
 
-	srv = grpc.NewServer(grpc.MaxMsgSize(maxMsgSize))
+	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(maxMsgSize))
+
+	if tlsConfig != nil {
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+
+	srv = grpc.NewServer(grpcOptions...)
 	redcloud.RegisterDataNodeMetadataServiceServer(srv, ms)
 	redcloud.RegisterDataNodeServiceServer(srv, dns)
 	if err = srv.Serve(l); err != nil {

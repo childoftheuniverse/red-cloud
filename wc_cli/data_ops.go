@@ -1,12 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
-	"context"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/client"
 	"github.com/golang/protobuf/proto"
@@ -35,7 +35,7 @@ func (c *RedCloudCLI) Get(
 		Column:       column,
 	}
 
-	dac = client.NewDataAccessClient(instance, c.etcdClient)
+	dac = client.NewDataAccessClient(instance, c.etcdClient, c.tlsConfig)
 
 	if col, err = dac.Get(ctx, req); err != nil {
 		log.Fatalf("Error requesting column %s:%s: %s", columnFamily, column,
@@ -87,7 +87,7 @@ func (c *RedCloudCLI) GetRange(
 		Column:       columns,
 	}
 
-	dac = client.NewDataAccessClient(instance, c.etcdClient)
+	dac = client.NewDataAccessClient(instance, c.etcdClient, c.tlsConfig)
 
 	go printResponses(resp, cancel)
 
@@ -126,7 +126,7 @@ func (c *RedCloudCLI) Insert(
 		},
 	}
 
-	dac = client.NewDataAccessClient(instance, c.etcdClient)
+	dac = client.NewDataAccessClient(instance, c.etcdClient, c.tlsConfig)
 
 	if err = dac.Insert(ctx, req); err != nil {
 		log.Fatalf("Error requesting column %s:%s: %s", columnFamily, column,

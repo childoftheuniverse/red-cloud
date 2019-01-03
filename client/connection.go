@@ -1,11 +1,13 @@
 package client
 
 import (
+	"crypto/tls"
 	"context"
 	discovery "github.com/childoftheuniverse/etcd-discovery"
 	"github.com/childoftheuniverse/red-cloud/common"
 	etcd "go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 /*
@@ -13,8 +15,11 @@ GetMasterConnection finds the master for the red-cloud instance associated
 with the giveh path and returns it.
 */
 func GetMasterConnection(
-	ctx context.Context, etcdClient *etcd.Client, path string) (
-	*grpc.ClientConn, error) {
+	ctx context.Context,
+	tlsConfig *tls.Config,
+	etcdClient *etcd.Client,
+	path string) (*grpc.ClientConn, error) {
+	var dialOpts []grpc.DialOption
 	var instance string
 	var err error
 
@@ -22,7 +27,13 @@ func GetMasterConnection(
 		return nil, err
 	}
 
-	// TODO: use actual credentials.
-	return discovery.NewGrpcClient(
-		ctx, etcdClient, common.EtcdMasterPrefix(instance), grpc.WithInsecure())
+	if tlsConfig == nil {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(
+			credentials.NewTLS(tlsConfig)))
+	}
+
+	return discovery.NewGrpcClient(ctx, etcdClient,
+		common.EtcdMasterPrefix(instance), dialOpts...)
 }
