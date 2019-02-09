@@ -8,6 +8,7 @@ RUN go get github.com/golang/protobuf/protoc-gen-go
 # etcd fix
 RUN go get go.etcd.io/etcd
 RUN grep -rl github.com/coreos/etcd /go/src/go.etcd.io/etcd | xargs sed -i -e's@github.com/coreos/etcd@go.etcd.io/etcd@g'
+RUN rm -fr /go/src/go.etcd.io/etcd/vendor/golang.org/x/net/trace
 
 # Compile the protocol buffers in all dependencies
 RUN go get -d github.com/childoftheuniverse/etcd-discovery
