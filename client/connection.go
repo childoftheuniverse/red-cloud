@@ -12,7 +12,7 @@ import (
 
 /*
 GetMasterConnection finds the master for the red-cloud instance associated
-with the giveh path and returns it.
+with the given path and returns it.
 */
 func GetMasterConnection(
 	ctx context.Context,
