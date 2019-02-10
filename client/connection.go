@@ -1,8 +1,8 @@
 package client
 
 import (
-	"crypto/tls"
 	"context"
+	"crypto/tls"
 	discovery "github.com/childoftheuniverse/etcd-discovery"
 	"github.com/childoftheuniverse/red-cloud/common"
 	etcd "go.etcd.io/etcd/clientv3"
