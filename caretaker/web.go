@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"html/template"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
+	"go.opencensus.io/trace"
 )
 
 var funcMap = map[string]interface{}{
@@ -217,6 +220,21 @@ as an HTML page over HTTP.
 */
 func (s *StatusWebService) ServeHTTP(
 	rw http.ResponseWriter, req *http.Request) {
+	var parentCtx context.Context
+	var ctx context.Context
+	var cancel context.CancelFunc
+	var span *trace.Span
+
+	ctx, cancel = context.WithTimeout(req.Context(), 20*time.Second)
+	defer cancel()
+
+	ctx, span = trace.StartSpan(
+		parentCtx, "red-cloud.StatusWebService/ServeHTTP")
+	defer span.End()
+
+	span.AddAttributes(
+		trace.StringAttribute("path", req.URL.Path))
+
 	if req.URL.Path == "/node" {
 		var nodeData = nodeStatusData{
 			BootstrapCSSPath: s.bootstrapCSSPath,
@@ -226,13 +244,17 @@ func (s *StatusWebService) ServeHTTP(
 		var err error
 
 		if nodeData.Node = s.registry.GetNodeByAddress(
-			req.FormValue("id")); nodeData.Node == nil {
+			ctx, req.FormValue("id")); nodeData.Node == nil {
+			span.Annotate(
+				[]trace.Attribute{
+					trace.StringAttribute("target-address", req.FormValue("id")),
+				}, "Node not found")
 			http.Error(rw, "No such node", http.StatusNotFound)
 			return
 		}
 
 		if nodeData.Tablets, err = s.registry.GetNodeTablets(
-			req.FormValue("id")); err != nil {
+			ctx, req.FormValue("id")); err != nil {
 			log.Print("Error determining tablets held by ",
 				req.FormValue("id"), ": ", err)
 		}
@@ -250,7 +272,11 @@ func (s *StatusWebService) ServeHTTP(
 		var err error
 
 		if tableData.Tablets, err = s.registry.GetTablets(
-			req.FormValue("id")); err != nil {
+			ctx, req.FormValue("id")); err != nil {
+			span.Annotate(
+				[]trace.Attribute{
+					trace.StringAttribute("table", req.FormValue("id")),
+				}, "Error requesting table metadata")
 			log.Print("Error determining the tablets in table ",
 				req.FormValue("id"), ": ", err)
 		}
@@ -268,9 +294,9 @@ func (s *StatusWebService) ServeHTTP(
 		var md *redcloud.ServerTableMetadata
 		var err error
 
-		mainData.Alive, mainData.Dead = s.registry.GetNodeLists()
+		mainData.Alive, mainData.Dead = s.registry.GetNodeLists(ctx)
 
-		if mds, err = s.registry.GetTableList(); err != nil {
+		if mds, err = s.registry.GetTableList(ctx); err != nil {
 			log.Print("Error fetching table list: ", err)
 		}
 

@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -15,7 +16,14 @@ import (
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/tlsconfig"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	openzipkinModel "github.com/openzipkin/zipkin-go/model"
+	zipkinReporter "github.com/openzipkin/zipkin-go/reporter"
+	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	etcd "go.etcd.io/etcd/clientv3"
+	"go.opencensus.io/exporter/zipkin"
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -46,6 +54,7 @@ func main() {
 	var l net.Listener
 	var etcdTTL int64
 	var port, statusPort int
+	var zipkinEndpoint string
 	var err error
 
 	thisHost, err = os.Hostname()
@@ -57,6 +66,9 @@ func main() {
 		"List of etcd servers to connect to")
 	flag.DurationVar(&etcdTimeout, "etcd-timeout", 30*time.Second,
 		"Timeout for etcd connection")
+	flag.StringVar(&zipkinEndpoint, "zipkin-endpoint",
+		fmt.Sprintf("%s:9411", thisHost),
+		"host:port pair to send Zipkin traces to")
 	flag.StringVar(&instanceName, "instance", "test",
 		"Name of the red-cloud instance being run")
 	flag.StringVar(&hostName, "host", thisHost,
@@ -121,6 +133,7 @@ func main() {
 	statusServer = NewStatusWebService(
 		bootstrapCSSPath, bootstrapCSSHash, nodeRegistry)
 	http.Handle("/", statusServer)
+	http.Handle("/metrics", promhttp.Handler())
 
 	if exportPort {
 		var ctx context.Context
@@ -178,6 +191,26 @@ func main() {
 
 	if tlsConfig != nil {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+
+	if zipkinEndpoint != "" {
+		var localEndpoint *openzipkinModel.Endpoint
+		var reporter zipkinReporter.Reporter
+		var zipkinExporter trace.Exporter
+
+		localEndpoint, err = openzipkin.NewEndpoint(
+			fmt.Sprintf("red-cloud-caretaker-%s", instanceName),
+			net.JoinHostPort(hostName, strconv.Itoa(statusPort)))
+		if err != nil {
+			log.Fatalf("Failed to create the local zipkin endpoint: %s", err)
+		}
+		reporter = zipkinHTTP.NewReporter(fmt.Sprintf("http://%s/api/v2/spans",
+			zipkinEndpoint))
+		zipkinExporter = zipkin.NewExporter(reporter, localEndpoint)
+		trace.RegisterExporter(zipkinExporter)
+
+		/* All caretaker traces should be reported. */
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	}
 
 	srv = grpc.NewServer(grpcOptions...)
