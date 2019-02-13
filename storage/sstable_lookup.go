@@ -1,16 +1,43 @@
 package storage
 
 import (
+	"context"
 	"io"
 	"net/url"
 	"sort"
 
-	"context"
 	"github.com/childoftheuniverse/filesystem"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/red-cloud/common"
 	"github.com/childoftheuniverse/sstable"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/trace"
 )
+
+var sstableLookups = prometheus.NewCounter(prometheus.CounterOpts{
+	Namespace: "red_cloud",
+	Subsystem: "storage",
+	Name:      "num_sstable_lookups",
+	Help:      "Number of lookups of data in sstable files",
+})
+var sstableLookupNumResults = prometheus.NewCounter(prometheus.CounterOpts{
+	Namespace: "red_cloud",
+	Subsystem: "storage",
+	Name:      "num_sstable_lookup_results",
+	Help:      "Number of results from lookups of data in sstable files",
+})
+var sstableLookupErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "red_cloud",
+	Subsystem: "storage",
+	Name:      "num_sstable_lookup_errors",
+	Help:      "Number of errors when looking up data in sstable files",
+}, []string{"error_class"})
+
+func init() {
+	prometheus.MustRegister(sstableLookups)
+	prometheus.MustRegister(sstableLookupNumResults)
+	prometheus.MustRegister(sstableLookupErrors)
+}
 
 /*
 LookupInSstable finds all records in the specified key range in the specified
@@ -21,15 +48,21 @@ will be marked as soon as processing the file has completed.
 
 columns is expected to be sorted (see sort.Strings).
 */
-func LookupInSstable(ctx context.Context, path string, columns []string,
+func LookupInSstable(parentCtx context.Context, path string, columns []string,
 	kr *common.KeyRange, results chan *redcloud.ColumnFamily,
-	errors chan error, done chan bool) {
+	errors chan error, done chan struct{}) {
+	var ctx context.Context
+	var span *trace.Span
 	var cf *redcloud.ColumnFamily
 	var reader *sstable.Reader
 	var sst, idx filesystem.ReadCloser
 	var sstu, idxu *url.URL
 	var key string
 	var err error
+
+	ctx, span = trace.StartSpan(parentCtx, "red-cloud.storage/LookupInSstable")
+	defer span.End()
+	sstableLookups.Inc()
 
 	/*
 		As soon as this function exits, successul or not, there's no point in
@@ -38,20 +71,48 @@ func LookupInSstable(ctx context.Context, path string, columns []string,
 	defer markDone(done)
 
 	if sstu, err = url.Parse(path + ".sst"); err != nil {
+		span.Annotate(
+			[]trace.Attribute{
+				trace.StringAttribute("path", path),
+				trace.StringAttribute("error", err.Error()),
+			}, "Invalid sstable path URL")
+		sstableLookupErrors.With(
+			prometheus.Labels{"error_class": "parse_file_name"}).Inc()
 		errors <- err
 		return
 	}
 	if sst, err = filesystem.OpenReader(ctx, sstu); err != nil {
+		span.Annotate(
+			[]trace.Attribute{
+				trace.StringAttribute("path", path),
+				trace.StringAttribute("error", err.Error()),
+			}, "Unable to open sstable for reading")
+		sstableLookupErrors.With(
+			prometheus.Labels{"error_class": "open_sstable_readonly"}).Inc()
 		errors <- err
 		return
 	}
 	defer sst.Close(ctx)
 
 	if idxu, err = url.Parse(path + ".idx"); err != nil {
+		span.Annotate(
+			[]trace.Attribute{
+				trace.StringAttribute("path", path),
+				trace.StringAttribute("error", err.Error()),
+			}, "Invalid sstable index path URL")
+		sstableLookupErrors.With(
+			prometheus.Labels{"error_class": "parse_file_name"}).Inc()
 		errors <- err
 		return
 	}
 	if idx, err = filesystem.OpenReader(ctx, idxu); err != nil {
+		span.Annotate(
+			[]trace.Attribute{
+				trace.StringAttribute("path", path),
+				trace.StringAttribute("error", err.Error()),
+			}, "Unable to open sstable index for reading")
+		sstableLookupErrors.With(
+			prometheus.Labels{"error_class": "open_sstable_readonly"}).Inc()
 		errors <- err
 		return
 	}
@@ -108,6 +169,7 @@ func LookupInSstable(ctx context.Context, path string, columns []string,
 		}
 
 		if rcf != nil {
+			sstableLookupNumResults.Inc()
 			results <- rcf
 		}
 
