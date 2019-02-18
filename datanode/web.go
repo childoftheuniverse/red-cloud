@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"html/template"
 	"log"
 	"net/http"
 
 	"github.com/childoftheuniverse/red-cloud/common"
+	"go.opencensus.io/trace"
 )
 
 var funcMap = map[string]interface{}{
@@ -91,6 +93,7 @@ as an HTML page over HTTP.
 */
 func (s *StatusWebService) ServeHTTP(
 	rw http.ResponseWriter, req *http.Request) {
+	var span *trace.Span
 	var mainData = mainStatusData{
 		BootstrapCSSPath: s.bootstrapCSSPath,
 		BootstrapCSSHash: s.bootstrapCSSHash,
@@ -99,6 +102,10 @@ func (s *StatusWebService) ServeHTTP(
 	var ranges []*common.KeyRange
 	var table string
 	var err error
+
+	_, span = trace.StartSpan(
+		context.Background(), "red-cloud.StatusWebService/ServeHTTP")
+	defer span.End()
 
 	for table, ranges = range s.registry.GetRanges() {
 		var rn *common.KeyRange
@@ -112,6 +119,9 @@ func (s *StatusWebService) ServeHTTP(
 	}
 
 	if err = mainStatusTemplate.Execute(rw, mainData); err != nil {
+		span.Annotate([]trace.Attribute{
+			trace.StringAttribute("error", err.Error()),
+		}, "Error executing web status page template")
 		log.Print("Error sending status page: ", err)
 	}
 }

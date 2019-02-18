@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -18,7 +19,14 @@ import (
 	rados "github.com/childoftheuniverse/filesystem-rados"
 	"github.com/childoftheuniverse/red-cloud"
 	"github.com/childoftheuniverse/tlsconfig"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	openzipkinModel "github.com/openzipkin/zipkin-go/model"
+	zipkinReporter "github.com/openzipkin/zipkin-go/reporter"
+	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	etcd "go.etcd.io/etcd/clientv3"
+	"go.opencensus.io/exporter/zipkin"
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -52,6 +60,7 @@ func main() {
 	var exportPort bool
 	var etcdTTL int64
 	var port, statusPort int
+	var zipkinEndpoint string
 	var err error
 
 	if thisHost, err = os.Hostname(); err != nil {
@@ -213,6 +222,26 @@ func main() {
 		ourAddr = l.Addr().(*net.TCPAddr)
 	}
 
+	if zipkinEndpoint != "" {
+		var localEndpoint *openzipkinModel.Endpoint
+		var reporter zipkinReporter.Reporter
+		var zipkinExporter trace.Exporter
+
+		localEndpoint, err = openzipkin.NewEndpoint(
+			fmt.Sprintf("red-cloud-caretaker-%s", instanceName),
+			net.JoinHostPort(hostName, strconv.Itoa(statusPort)))
+		if err != nil {
+			log.Fatalf("Failed to create the local zipkin endpoint: %s", err)
+		}
+		reporter = zipkinHTTP.NewReporter(fmt.Sprintf("http://%s/api/v2/spans",
+			zipkinEndpoint))
+		zipkinExporter = zipkin.NewExporter(reporter, localEndpoint)
+		trace.RegisterExporter(zipkinExporter)
+
+		/* All caretaker traces should be reported. */
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	}
+
 	rangeRegistry = NewServingRangeRegistry(
 		instanceName, ourAddr.IP.String(), uint16(ourAddr.Port), etcdClient)
 	statusServer = NewStatusWebService(
@@ -221,6 +250,7 @@ func main() {
 	dns = NewDataNodeService(rangeRegistry)
 
 	http.Handle("/", statusServer)
+	http.Handle("/metrics", promhttp.Handler())
 	go http.Serve(sl, nil)
 
 	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(maxMsgSize))
