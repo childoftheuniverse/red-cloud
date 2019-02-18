@@ -19,14 +19,19 @@ var numRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Namespace: "red_cloud",
 	Subsystem: "admin_service",
 	Name:      "num_requests",
-	Help:      "Number of RPCs received to the AdminService interface",
+	Help:      "Number of RPCs received by the AdminService interface",
 }, []string{"method"})
 var numErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Namespace: "red_cloud",
 	Subsystem: "admin_service",
-	Name:      "num_requests",
-	Help:      "Number of RPCs received to the AdminService interface",
+	Name:      "num_errors",
+	Help:      "Number of RPCs received by the AdminService interface",
 }, []string{"method", "error_class"})
+
+func init() {
+	prometheus.MustRegister(numRequests)
+	prometheus.MustRegister(numErrors)
+}
 
 /*
 AdminService contains methods for managing table metadata or perform other
@@ -87,8 +92,7 @@ func (adm *AdminService) CreateTable(
 
 	span.AddAttributes(
 		trace.StringAttribute("table-name", table.Name),
-		trace.Int64Attribute("split-size", md.TableMd.SplitSize),
-	)
+		trace.Int64Attribute("split-size", md.TableMd.SplitSize))
 
 	if md.TableMd.SplitSize <= 0 {
 		md.TableMd.SplitSize = 128 * 1048576
