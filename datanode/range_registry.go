@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"context"
+	"github.com/childoftheuniverse/fancylocking"
 	"github.com/childoftheuniverse/filesystem"
 	"github.com/childoftheuniverse/filesystem-internal"
 	"github.com/childoftheuniverse/recordio"
@@ -144,7 +145,7 @@ type sstableInfo struct {
 	MajorSstableSize int64
 
 	// Lock to ensure serialized access to the sstable journal.
-	JournalLock sync.Mutex
+	JournalLock fancylocking.MutexWithDeadline
 
 	// Timestamp of when the most recent journal was created.
 	JournalCreateTime time.Time
@@ -445,6 +446,7 @@ func (reg *ServingRangeRegistry) LoadRange(parentCtx context.Context,
 			Descriptor:        pathdesc,
 			Journal:           nil,
 			JournalCreateTime: time.Now(),
+			JournalLock:       fancylocking.NewMutexWithDeadline(),
 		}
 	}
 
@@ -812,7 +814,9 @@ func (reg *ServingRangeRegistry) CreateJournalWriter(
 		return nil, err
 	}
 
-	info.JournalLock.Lock()
+	if !info.JournalLock.LockWithContext(ctx) {
+		return nil, ctx.Err()
+	}
 	defer info.JournalLock.Unlock()
 
 	if writer, err = reg.internalCreateJournalWriter(
@@ -844,7 +848,9 @@ func (reg *ServingRangeRegistry) GetJournalWriter(
 		return nil, err
 	}
 
-	info.JournalLock.Lock()
+	if !info.JournalLock.LockWithContext(ctx) {
+		return nil, ctx.Err()
+	}
 	defer info.JournalLock.Unlock()
 
 	if info.Journal != nil {
@@ -1136,7 +1142,14 @@ func (reg *ServingRangeRegistry) sortLogs(
 			return
 		}
 
-		info.JournalLock.Lock()
+		if !info.JournalLock.LockWithContext(ctx) {
+			span.Annotate([]trace.Attribute{
+				trace.StringAttribute("path", outurl.String()),
+				trace.StringAttribute("error", ctx.Err().Error()),
+			}, "Context expired")
+			log.Print("Context expired while sorting logs")
+			return
+		}
 
 		// Update etcd with the updated journal list.
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
@@ -1628,7 +1641,14 @@ func (reg *ServingRangeRegistry) majorCompaction(
 			return
 		}
 
-		info.JournalLock.Lock()
+		if !info.JournalLock.LockWithContext(ctx) {
+			span.Annotate([]trace.Attribute{
+				trace.StringAttribute("path", usst.String()),
+				trace.StringAttribute("error", ctx.Err().Error()),
+			}, "Context expired")
+			log.Print("Context expired while merging sstable")
+			return
+		}
 
 		// Update etcd with the updated journal list.
 		ctx, _ = context.WithTimeout(ctx, 10*time.Minute)
@@ -1960,7 +1980,14 @@ func (reg *ServingRangeRegistry) minorCompaction(
 			return
 		}
 
-		info.JournalLock.Lock()
+		if !info.JournalLock.LockWithContext(ctx) {
+			span.Annotate([]trace.Attribute{
+				trace.StringAttribute("path", usst.String()),
+				trace.StringAttribute("error", ctx.Err().Error()),
+			}, "Context expired")
+			log.Print("Context expired while merging sstable")
+			return
+		}
 
 		// Update etcd with the updated journal list.
 		ctx, _ = context.WithTimeout(ctx, 10*time.Minute)
