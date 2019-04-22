@@ -23,9 +23,6 @@ _testmain.go
 *.test
 *.prof
 
-# Compiled protocol buffers
-*.pb.go
-
 # Output programs
 caretaker/caretaker*
 datanode/datanode*
