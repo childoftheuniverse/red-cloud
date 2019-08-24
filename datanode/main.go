@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"context"
+	"contrib.go.opencensus.io/exporter/zipkin"
 	"github.com/childoftheuniverse/etcd-discovery/exporter"
 	"github.com/childoftheuniverse/filesystem"
 	_ "github.com/childoftheuniverse/filesystem-file"
@@ -25,7 +26,6 @@ import (
 	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	etcd "go.etcd.io/etcd/clientv3"
-	"go.opencensus.io/exporter/zipkin"
 	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
