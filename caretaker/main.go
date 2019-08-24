@@ -63,7 +63,7 @@ func main() {
 	}
 
 	flag.StringVar(&etcdServers, "etcd-servers", "",
-		"List of etcd servers to connect to")
+		"Comma separated list of etcd server URLs to connect to")
 	flag.DurationVar(&etcdTimeout, "etcd-timeout", 30*time.Second,
 		"Timeout for etcd connection")
 	flag.StringVar(&zipkinEndpoint, "zipkin-endpoint",
