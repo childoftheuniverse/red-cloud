@@ -80,8 +80,8 @@ var numRelocations = prometheus.NewCounter(prometheus.CounterOpts{
 var numRelocationErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Namespace: "red_cloud",
 	Subsystem: "caretaker_node_registry",
-	Name:      "num_tablet_relocations",
-	Help:      "Number of times a tablet was moved to another data node",
+	Name:      "num_tablet_relocation_errors",
+	Help:      "Number of times a tablet failed to be moved to another data node",
 }, []string{"error_class"})
 var numMaintenanceRuns = prometheus.NewCounter(prometheus.CounterOpts{
 	Namespace: "red_cloud",
