@@ -225,7 +225,7 @@ func (s *StatusWebService) ServeHTTP(
 	var cancel context.CancelFunc
 	var span *trace.Span
 
-	ctx, cancel = context.WithTimeout(req.Context(), 20*time.Second)
+	parentCtx, cancel = context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancel()
 
 	ctx, span = trace.StartSpan(
