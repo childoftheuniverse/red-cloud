@@ -44,6 +44,8 @@ func main() {
 	var etcdClient *etcd.Client
 	var etcdTimeout time.Duration
 	var etcdConfig etcd.Config
+	var etcdTLSConfig *tls.Config
+	var etcdCA string
 	var srv *grpc.Server
 	var maxMsgSize int
 
@@ -85,6 +87,8 @@ func main() {
 	flag.Int64Var(&etcdTTL, "etcd-ttl", 30,
 		"Number of seconds the etcd exported service will stick around "+
 			"without being renewed. Must be greater than or equal to 5")
+	flag.StringVar(&etcdCA, "etcd-ca", "",
+		"Use a separate CA for etcd only. If unset, use the value from --ca")
 	flag.DurationVar(&startupWait, "startup-deadline", 20*time.Second,
 		"Number of seconds to wait on remote operations during startup")
 	flag.StringVar(&bootstrapCSSPath, "bootstrap-css",
@@ -124,11 +128,20 @@ func main() {
 		}
 	}
 
+	if etcdCA != "" {
+		if etcdTLSConfig, err = tlsconfig.TLSConfigWithRootCAAndCert(
+			etcdCA, certificatePath, privateKeyPath); err != nil {
+			log.Fatal("Unable to initialize TLS context for etcd: ", err)
+		}
+	} else if tlsConfig != nil {
+		etcdTLSConfig = tlsConfig
+	}
+
 	etcdConfig.Endpoints = strings.Split(etcdServers, ",")
 	etcdConfig.DialTimeout = etcdTimeout
 
-	if tlsConfig != nil {
-		etcdConfig.TLS = tlsConfig
+	if etcdTLSConfig != nil {
+		etcdConfig.TLS = etcdTLSConfig
 	}
 
 	// Connect to etcd.
