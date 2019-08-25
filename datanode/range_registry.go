@@ -90,7 +90,7 @@ var majorCompactionsDone = prometheus.NewCounter(prometheus.CounterOpts{
 var majorCompactionsFailed = prometheus.NewCounter(prometheus.CounterOpts{
 	Namespace: "red_cloud",
 	Subsystem: "range_registry",
-	Name:      "num_minor_compactions_failed",
+	Name:      "num_major_compactions_failed",
 	Help:      "Cumulative number of log sorts which have failed.",
 })
 var majorCompactionsLatency = prometheus.NewGauge(prometheus.GaugeOpts{
