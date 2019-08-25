@@ -111,12 +111,12 @@ func main() {
 			"Empty disables client authentication.")
 
 	// Rados specific configuration flags.
-	flag.StringVar(&radosConfig, "rados-config", "",
+	flag.StringVar(&radosConfig, "datanode-rados-config", "",
 		"Path to a Rados client configuration file. If unset, the default file "+
 			"will be read")
-	flag.StringVar(&radosCluster, "rados-cluster", "",
+	flag.StringVar(&radosCluster, "datanode-rados-cluster", "",
 		"Name of the Rados cluster in the configuration file to use")
-	flag.StringVar(&radosUser, "rados-user", "",
+	flag.StringVar(&radosUser, "datanode-rados-user", "",
 		"Name of the user to use for accessing Rados")
 	flag.BoolVar(&wantRados, "want-rados", false,
 		"Fail startup if Rados cannot be configured")
