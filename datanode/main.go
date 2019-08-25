@@ -73,6 +73,9 @@ func main() {
 		"List of etcd servers to connect to")
 	flag.DurationVar(&etcdTimeout, "etcd-timeout", 30*time.Second,
 		"Timeout for etcd connection")
+	flag.StringVar(&zipkinEndpoint, "zipkin-endpoint",
+		fmt.Sprintf("%s:9411", thisHost),
+		"host:port pair to send Zipkin traces to")
 	flag.StringVar(&instanceName, "instance", "test",
 		"Name of the red-cloud instance being run")
 	flag.StringVar(&hostName, "host", thisHost,
