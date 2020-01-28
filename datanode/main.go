@@ -244,7 +244,7 @@ func main() {
 		var zipkinExporter trace.Exporter
 
 		localEndpoint, err = openzipkin.NewEndpoint(
-			fmt.Sprintf("red-cloud-caretaker-%s", instanceName),
+			fmt.Sprintf("red-cloud-datanode-%s", instanceName),
 			net.JoinHostPort(hostName, strconv.Itoa(statusPort)))
 		if err != nil {
 			log.Fatalf("Failed to create the local zipkin endpoint: %s", err)
@@ -253,9 +253,6 @@ func main() {
 			zipkinEndpoint))
 		zipkinExporter = zipkin.NewExporter(reporter, localEndpoint)
 		trace.RegisterExporter(zipkinExporter)
-
-		/* All caretaker traces should be reported. */
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	}
 
 	rangeRegistry = NewServingRangeRegistry(
