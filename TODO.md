@@ -25,6 +25,7 @@ Alive/Dead Handling
    never start serving tablets assigned to them.
  * When nodes enter the dead state, their tablets don't get reassigned
    immediately.
+ * If a node cannot be reached once, it is never retried.
 
 Small Bugs
 ----------
