@@ -245,13 +245,14 @@ The node health will be health checked and associated tablets will be
 unloaded and pushed off to other data nodes in case of overload.
 */
 type DataNodeRegistry struct {
-	knownNodes map[string]*DataNode
-	tlsConfig  *tls.Config
-	etcdClient *etcd.Client
-	alive      NodeSlice
-	missing    NodeSlice
-	lock       sync.RWMutex
-	instance   string
+	knownNodes         map[string]*DataNode
+	tlsConfig          *tls.Config
+	expectedServerName string
+	etcdClient         *etcd.Client
+	alive              NodeSlice
+	missing            NodeSlice
+	lock               sync.RWMutex
+	instance           string
 }
 
 /*
@@ -261,12 +262,14 @@ and returns it to the caller.
 func NewDataNodeRegistry(
 	etcdClient *etcd.Client,
 	tlsConfig *tls.Config,
-	instance string) *DataNodeRegistry {
+	instance string,
+	expectedServerName string) *DataNodeRegistry {
 	var rv = &DataNodeRegistry{
-		etcdClient: etcdClient,
-		tlsConfig:  tlsConfig,
-		instance:   instance,
-		knownNodes: make(map[string]*DataNode),
+		etcdClient:         etcdClient,
+		tlsConfig:          tlsConfig,
+		instance:           instance,
+		knownNodes:         make(map[string]*DataNode),
+		expectedServerName: expectedServerName,
 	}
 	go rv.registryMaintenance()
 	return rv
@@ -310,6 +313,9 @@ func (r *DataNodeRegistry) Add(
 	} else {
 		var tlsCreds credentials.TransportCredentials = credentials.NewTLS(
 			r.tlsConfig)
+		if r.expectedServerName != "" {
+			tlsCreds.OverrideServerName(r.expectedServerName)
+		}
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
 	}
 	if client, err = grpc.Dial(tgt, dialOpts...); err != nil {

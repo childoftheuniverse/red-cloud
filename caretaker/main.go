@@ -46,6 +46,7 @@ func main() {
 	var startupWait time.Duration
 	var startupDeadline time.Time
 	var bootstrapCSSPath, bootstrapCSSHash string
+	var expectedDataNodeCertName string
 
 	var privateKeyPath string
 	var certificatePath string
@@ -99,6 +100,8 @@ func main() {
 		"Hash to verify the integrity of the bootstrap CSS hash")
 	flag.DurationVar(&startupWait, "startup-deadline", 20*time.Second,
 		"Number of seconds to wait on remote operations during startup")
+	flag.StringVar(&expectedDataNodeCertName, "expected-data-node-cert-name", "",
+		"Expected CN value for data nodes; use this for data nodes on dynamic IPs")
 
 	// TLS authentication settings.
 	flag.StringVar(&privateKeyPath, "private-key", "",
@@ -141,7 +144,8 @@ func main() {
 	}
 	defer etcdClient.Close()
 
-	nodeRegistry = NewDataNodeRegistry(etcdClient, tlsConfig, instanceName)
+	nodeRegistry = NewDataNodeRegistry(etcdClient, tlsConfig, instanceName,
+		expectedDataNodeCertName)
 	admin = NewAdminService(etcdClient, nodeRegistry)
 	statusServer = NewStatusWebService(
 		bootstrapCSSPath, bootstrapCSSHash, nodeRegistry)
