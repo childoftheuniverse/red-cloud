@@ -1,4 +1,4 @@
-FROM golang:1.12
+FROM golang:1.13
 LABEL maintainer Child of the Universe <childoftheuniverse@protonmail.com>
 
 # Set up protocol buffer compile pipeline
