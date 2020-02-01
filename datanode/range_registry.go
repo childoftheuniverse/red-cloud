@@ -315,17 +315,16 @@ func (reg *ServingRangeRegistry) LoadRange(parentCtx context.Context,
 
 		// Check whether the deadline is up or the RPC has been cancelled.
 		if ctx.Err() != nil {
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", ctx.Err().Error()),
-			}, "Context expired")
+			span.AddAttributes(
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
 			return ctx.Err()
 		}
 
 		if gresp, err = reg.etcdClient.Get(
 			ctx, etcdPath, etcd.WithLimit(1)); err != nil {
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "etcd communication error")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "etcd communication error")
 			return err
 		}
 
@@ -335,9 +334,8 @@ func (reg *ServingRangeRegistry) LoadRange(parentCtx context.Context,
 					TODO: undo the changes made in the previous part of this
 					function.
 				*/
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", err.Error()),
-				}, "Metadata reading error")
+				span.AddAttributes(trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Metadata reading error")
 				return fmt.Errorf(
 					"Unable to parse %s as ServerTableMetadata protobuf at version %d",
 					etcdPath, ev.Version)
@@ -395,9 +393,8 @@ func (reg *ServingRangeRegistry) LoadRange(parentCtx context.Context,
 		}
 
 		if encData, err = proto.Marshal(&md); err != nil {
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Metadata marshalling error")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Metadata marshalling error")
 			return fmt.Errorf("Unable to encode updated metadata: %s", err)
 		}
 
@@ -406,9 +403,8 @@ func (reg *ServingRangeRegistry) LoadRange(parentCtx context.Context,
 			etcd.Compare(etcd.Version(etcdPath), "=", version)).Then(
 			etcd.OpPut(etcdPath, string(encData))).Commit(); err != nil {
 			log.Printf("Error committing update to %s: %s", etcdPath, err)
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Error committing metadata update")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error committing metadata update")
 			continue
 		}
 
@@ -489,9 +485,8 @@ func (reg *ServingRangeRegistry) UnloadRange(parentCtx context.Context,
 	// First, let's check the RPC wasn't cancelled in the meantime.
 	if ctx.Err() != nil {
 		reg.registryAccessLock.Unlock()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", ctx.Err().Error()),
-		}, "Context expired")
+		span.AddAttributes(trace.StringAttribute("error", ctx.Err().Error()))
+		span.Annotate(nil, "Context expired")
 		return resp, ctx.Err()
 	}
 
@@ -1023,10 +1018,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 		childCtx, cancel = context.WithTimeout(ctx, 10*time.Minute)
 		defer cancel()
 		if input, err = filesystem.OpenReader(childCtx, inurl); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to open log for sorting")
+				trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Unable to open log for sorting")
 			log.Print("Unable to open ", path, ": ", err)
 			logSortsFailed.Inc()
 			return
@@ -1037,10 +1032,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 			if err = reader.ReadMessage(ctx, columnFamily); err == io.EOF {
 				break
 			} else if err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("path", path),
-					trace.StringAttribute("error", err.Error()),
-				}, "Unable to open log for sorting")
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Unable to open log for sorting")
 				log.Print("Unable to read record from ", path, ": ", err)
 				logSortsFailed.Inc()
 				return
@@ -1106,10 +1101,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 		outurl = inurl.ResolveReference(
 			&url.URL{Path: inurl.Path + ".sorted"})
 		if output, err = filesystem.OpenWriter(ctx, outurl); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("path", outurl.String()),
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to open sorted log output file")
+				trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Unable to open sorted log output file")
 			log.Print("Unable to create output file ", outurl, ": ", err)
 			logSortsFailed.Inc()
 			return
@@ -1119,10 +1114,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 
 		for _, columnFamily = range cfs {
 			if err = journalWriter.WriteMessage(ctx, columnFamily); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("path", outurl.String()),
-					trace.StringAttribute("error", err.Error()),
-				}, "Unable to open sorted log output file")
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Unable to open sorted log output file")
 				log.Print("Error writing rewritten column family to ", outurl,
 					": ", err)
 				filesystem.Remove(ctx, outurl)
@@ -1132,10 +1127,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 		}
 
 		if err = output.Close(ctx); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("path", outurl.String()),
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to close sorted log output file")
+				trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Unable to close sorted log output file")
 			log.Print("Cannot close sorted log output ", outurl, ": ", err)
 			filesystem.Remove(ctx, outurl)
 			logSortsFailed.Inc()
@@ -1143,10 +1138,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 		}
 
 		if !info.JournalLock.LockWithContext(ctx) {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("path", outurl.String()),
-				trace.StringAttribute("error", ctx.Err().Error()),
-			}, "Context expired")
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
 			log.Print("Context expired while sorting logs")
 			return
 		}
@@ -1166,10 +1161,11 @@ func (reg *ServingRangeRegistry) sortLogs(
 			var encData []byte
 
 			if ctx.Err() != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("path", etcdPath),
-					trace.StringAttribute("error", ctx.Err().Error()),
-				}, "Context expired while updating table metadata")
+					trace.StringAttribute("error", ctx.Err().Error()))
+				span.Annotate(
+					nil, "Context expired while updating table metadata")
 				log.Print("Error writing back updated table ", table, " to ",
 					etcdPath, ": ", err)
 				info.JournalLock.Unlock()
@@ -1180,10 +1176,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 
 			if gresp, err = reg.etcdClient.Get(
 				ctx, etcdPath, etcd.WithLimit(1)); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("path", etcdPath),
-					trace.StringAttribute("error", err.Error()),
-				}, "Error fetching table metadata from etcd")
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Error fetching table metadata from etcd")
 				log.Print("Error fetching metadata ", etcdPath,
 					" from etcd: ", err)
 				info.JournalLock.Unlock()
@@ -1194,10 +1190,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 
 			for _, ev = range gresp.Kvs {
 				if err = proto.Unmarshal(ev.Value, &md); err != nil {
-					span.Annotate([]trace.Attribute{
+					span.AddAttributes(
 						trace.StringAttribute("path", etcdPath),
-						trace.StringAttribute("error", err.Error()),
-					}, "Table metadata corrupted")
+						trace.StringAttribute("error", err.Error()))
+					span.Annotate(nil, "Table metadata corrupted")
 					log.Print("Error parsing table metadata in ", etcdPath,
 						": ", err)
 					info.JournalLock.Unlock()
@@ -1236,10 +1232,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 			}
 
 			if encData, err = proto.Marshal(&md); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("path", etcdPath),
-					trace.StringAttribute("error", err.Error()),
-				}, "Error encoding table metadata")
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Error encoding table metadata")
 				log.Print("Error encoding updated metadata for ", table,
 					": ", err)
 				info.JournalLock.Unlock()
@@ -1252,10 +1248,10 @@ func (reg *ServingRangeRegistry) sortLogs(
 				etcd.Compare(etcd.ModRevision(etcdPath), "=", modrev),
 				etcd.Compare(etcd.Version(etcdPath), "=", version)).Then(
 				etcd.OpPut(etcdPath, string(encData))).Commit(); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("path", etcdPath),
-					trace.StringAttribute("error", err.Error()),
-				}, "Unable to update table metadata")
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Unable to update table metadata")
 				log.Printf("Error committing update to %s: %s", etcdPath, err)
 				continue
 			}
@@ -1277,10 +1273,11 @@ func (reg *ServingRangeRegistry) sortLogs(
 
 		// Overwrite path of sorted log.
 		if err = filesystem.Remove(ctx, inurl); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("path", inurl.String()),
-				trace.StringAttribute("error", err.Error()),
-			}, "")
+				trace.StringAttribute("error", err.Error()))
+			span.Annotate(
+				nil, "Unable to delete original unsorted input sstable")
 			log.Print("Unable to delete original unsorted input sstable ",
 				inurl, ": ", err)
 		}
@@ -1505,30 +1502,30 @@ func (reg *ServingRangeRegistry) majorCompaction(
 
 		// Create target sstable.
 		if usst, err = url.Parse(sstPath + ".sst"); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", sstPath),
-			}, "Error generating target sstable URL")
+				trace.StringAttribute("path", sstPath))
+			span.Annotate(nil, "Error generating target sstable URL")
 			log.Printf("Error parsing sstable destination URL %s: %s", sstPath, err)
 			majorCompactionsFailed.Inc()
 			return
 		}
 
 		if outsst, err = filesystem.OpenWriter(ctx, usst); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", usst.String()),
-			}, "Error creating target sstable writer")
+				trace.StringAttribute("path", usst.String()))
+			span.Annotate(nil, "Error creating target sstable writer")
 			log.Printf("Error opening destination sstable %s: %s", sstPath, err)
 			majorCompactionsFailed.Inc()
 			return
 		}
 
 		if uidx, err = url.Parse(sstPath + ".idx"); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", sstPath),
-			}, "Error generating target sstable index URL")
+				trace.StringAttribute("path", sstPath))
+			span.Annotate(nil, "Error generating target sstable index URL")
 			log.Printf("Error parsing index destination URL %s: %s", sstPath, err)
 			majorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
@@ -1536,10 +1533,10 @@ func (reg *ServingRangeRegistry) majorCompaction(
 		}
 
 		if outidx, err = filesystem.OpenWriter(ctx, uidx); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", uidx.String()),
-			}, "Error creating target sstable index writer")
+				trace.StringAttribute("path", uidx.String()))
+			span.Annotate(nil, "Error creating target sstable index writer")
 			log.Printf("Error opening destination index %s: %s", sstPath, err)
 			majorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
@@ -1551,10 +1548,10 @@ func (reg *ServingRangeRegistry) majorCompaction(
 
 		if origMinorSst, err = url.Parse(
 			info.Descriptor.MinorSstablePath + ".sst"); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", info.Descriptor.MinorSstablePath),
-			}, "Error generating original minor sstable URL")
+				trace.StringAttribute("path", info.Descriptor.MinorSstablePath))
+			span.Annotate(nil, "Error generating original minor sstable URL")
 			log.Printf("Error creating URL for minor sstable %s: %s",
 				info.Descriptor.MinorSstablePath, err)
 			majorCompactionsFailed.Inc()
@@ -1566,16 +1563,16 @@ func (reg *ServingRangeRegistry) majorCompaction(
 			info.Descriptor.MinorSstablePath + ".idx"); err != nil {
 			span.Annotate([]trace.Attribute{
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", info.Descriptor.MinorSstablePath),
-			}, "Error generating original minor sstable index URL")
+				trace.StringAttribute("path", info.Descriptor.MinorSstablePath)},
+				"Error generating original minor sstable index URL")
 			log.Printf("Error creating URL for minor sstable index %s: %s",
 				info.Descriptor.MinorSstablePath, err)
 		}
 		if ssta, err = filesystem.OpenReader(ctx, origMinorSst); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", uidx.String()),
-			}, "Error creating original minor sstable reader")
+				trace.StringAttribute("path", uidx.String()))
+			span.Annotate(nil, "Error creating original minor sstable reader")
 			log.Printf("Error opening minor sstable %s: %s",
 				info.Descriptor.MinorSstablePath, err)
 			majorCompactionsFailed.Inc()
@@ -1590,10 +1587,10 @@ func (reg *ServingRangeRegistry) majorCompaction(
 		if len(info.Descriptor.MajorSstablePath) > 0 {
 			if origMajorSst, err = url.Parse(
 				info.Descriptor.MajorSstablePath + ".sst"); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("error", err.Error()),
-					trace.StringAttribute("path", info.Descriptor.MajorSstablePath),
-				}, "Error generating original minor sstable URL")
+					trace.StringAttribute("path", info.Descriptor.MajorSstablePath))
+				span.Annotate(nil, "Error generating original minor sstable URL")
 				log.Printf("Error creating URL for major sstable %s: %s",
 					info.Descriptor.MajorSstablePath, err)
 				majorCompactionsFailed.Inc()
@@ -1603,19 +1600,20 @@ func (reg *ServingRangeRegistry) majorCompaction(
 			}
 			if origMajorIdx, err = url.Parse(
 				info.Descriptor.MajorSstablePath + ".idx"); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("error", err.Error()),
-					trace.StringAttribute("path", info.Descriptor.MajorSstablePath),
-				}, "Error generating original minor sstable index URL")
+					trace.StringAttribute("path", info.Descriptor.MajorSstablePath))
+				span.Annotate(nil, "Error generating original minor sstable index URL")
 				log.Printf("Error creating URL for major sstable index %s: %s",
 					info.Descriptor.MajorSstablePath, err)
 			}
 			if sstb, err = filesystem.OpenReader(
 				ctx, origMajorSst); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("error", err.Error()),
-					trace.StringAttribute("path", uidx.String()),
-				}, "Error creating original major sstable reader")
+					trace.StringAttribute("path", uidx.String()))
+				span.Annotate(
+					nil, "Error creating original major sstable reader")
 				log.Printf("Error opening major sstable %s: %s",
 					info.Descriptor.MajorSstablePath, err)
 				majorCompactionsFailed.Inc()
@@ -1631,9 +1629,8 @@ func (reg *ServingRangeRegistry) majorCompaction(
 		}
 
 		if size, err = reg.mergeSstables(ctx, a, b, out); err != nil {
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Error merging minor and major sstables")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error merging minor and major sstables")
 			log.Printf("Error sorting sstable %s: %s", sstPath, err)
 			majorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
@@ -1642,10 +1639,10 @@ func (reg *ServingRangeRegistry) majorCompaction(
 		}
 
 		if !info.JournalLock.LockWithContext(ctx) {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("path", usst.String()),
-				trace.StringAttribute("error", ctx.Err().Error()),
-			}, "Context expired")
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
 			log.Print("Context expired while merging sstable")
 			return
 		}
@@ -1665,9 +1662,9 @@ func (reg *ServingRangeRegistry) majorCompaction(
 			var encData []byte
 
 			if ctx.Err() != nil {
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", ctx.Err().Error()),
-				}, "Context expired")
+				span.AddAttributes(
+					trace.StringAttribute("error", ctx.Err().Error()))
+				span.Annotate(nil, "Context expired")
 				log.Print("Error writing back updated table ", table, " to ",
 					etcdPath, ": ", err)
 				info.JournalLock.Unlock()
@@ -1679,10 +1676,10 @@ func (reg *ServingRangeRegistry) majorCompaction(
 
 			if gresp, err = reg.etcdClient.Get(
 				ctx, etcdPath, etcd.WithLimit(1)); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("error", err.Error()),
-					trace.StringAttribute("path", etcdPath),
-				}, "etcd communication error")
+					trace.StringAttribute("path", etcdPath))
+				span.Annotate(nil, "etcd communication error")
 				log.Print("Error fetching metadata ", etcdPath,
 					" from etcd: ", err)
 				info.JournalLock.Unlock()
@@ -1694,10 +1691,10 @@ func (reg *ServingRangeRegistry) majorCompaction(
 
 			for _, ev = range gresp.Kvs {
 				if err = proto.Unmarshal(ev.Value, &md); err != nil {
-					span.Annotate([]trace.Attribute{
+					span.AddAttributes(
 						trace.StringAttribute("error", err.Error()),
-						trace.StringAttribute("path", etcdPath),
-					}, "Table metadata corrupted")
+						trace.StringAttribute("path", etcdPath))
+					span.Annotate(nil, "Table metadata corrupted")
 					log.Print("Error parsing table metadata in ", etcdPath,
 						": ", err)
 					info.JournalLock.Unlock()
@@ -1734,9 +1731,9 @@ func (reg *ServingRangeRegistry) majorCompaction(
 			}
 
 			if encData, err = proto.Marshal(&md); err != nil {
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", err.Error()),
-				}, "Error marshalling tablet metadata")
+				span.AddAttributes(
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Error marshalling tablet metadata")
 				log.Print("Error encoding updated metadata for ", table,
 					": ", err)
 				info.JournalLock.Unlock()
@@ -1853,10 +1850,11 @@ func (reg *ServingRangeRegistry) minorCompaction(
 		if len(info.Descriptor.MinorSstablePath) > 0 {
 			if origMinorSst, err = url.Parse(
 				info.Descriptor.MinorSstablePath + ".sst"); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("error", err.Error()),
-					trace.StringAttribute("path", info.Descriptor.MinorSstablePath),
-				}, "Error generating original minor sstable URL")
+					trace.StringAttribute("path", info.Descriptor.MinorSstablePath))
+				span.Annotate(
+					nil, "Error generating original minor sstable URL")
 				log.Printf("Error creating URL for minor sstable %s: %s",
 					info.Descriptor.MinorSstablePath, err)
 				minorCompactionsFailed.Inc()
@@ -1875,10 +1873,11 @@ func (reg *ServingRangeRegistry) minorCompaction(
 			}
 			if ssta, err = filesystem.OpenReader(
 				ctx, origMinorSst); err != nil {
-				span.Annotate([]trace.Attribute{
+				span.AddAttributes(
 					trace.StringAttribute("error", err.Error()),
-					trace.StringAttribute("path", origMinorSst.String()),
-				}, "Error opening original minor sstable for reading")
+					trace.StringAttribute("path", origMinorSst.String()))
+				span.Annotate(
+					nil, "Error opening original minor sstable for reading")
 				log.Printf("Error opening minor sstable %s: %s",
 					info.Descriptor.MinorSstablePath, err)
 				minorCompactionsFailed.Inc()
@@ -1894,10 +1893,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 		}
 
 		if sortedLogU, err = url.Parse(sortedLogPath); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", sortedLogPath),
-			}, "Error generating sorted lag URL")
+				trace.StringAttribute("path", sortedLogPath))
+			span.Annotate(nil, "Error generating sorted log URL")
 			log.Printf("Error creating URL for log %s: %s", sortedLogPath, err)
 			minorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
@@ -1905,10 +1904,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 			return
 		}
 		if sstb, err = filesystem.OpenReader(ctx, sortedLogU); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", sortedLogU.String()),
-			}, "Error generating sorted lag URL")
+				trace.StringAttribute("path", sortedLogU.String()))
+			span.Annotate(nil, "Error generating sorted lag URL")
 			log.Printf("Error opening log %s: %s", sortedLogPath, err)
 			minorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
@@ -1925,42 +1924,46 @@ func (reg *ServingRangeRegistry) minorCompaction(
 
 		// Create target sstable.
 		if usst, err = url.Parse(sstPath + ".sst"); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", sortedLogU.String()),
-			}, "Error generating sorted log URL")
-			log.Printf("Error parsing sstable destination URL %s: %s", sstPath, err)
+				trace.StringAttribute("path", sstPath+".sst"))
+			span.Annotate(nil, "Error generating sorted log URL")
+			log.Printf("Error parsing sstable destination URL %s: %s",
+				sstPath+".sst", err)
 			majorCompactionsFailed.Inc()
 			return
 		}
 
 		if outsst, err = filesystem.OpenWriter(ctx, usst); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", usst.String()),
-			}, "Error opening output sstable writer")
-			log.Printf("Error opening destination sstable %s: %s", sstPath, err)
+				trace.StringAttribute("path", usst.String()))
+			span.Annotate(nil, "Error opening output sstable writer")
+			log.Printf("Error opening destination sstable %s: %s",
+				usst.String(), err)
 			majorCompactionsFailed.Inc()
 			return
 		}
 
 		if uidx, err = url.Parse(sstPath + ".idx"); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", usst.String()),
-			}, "Error generating output sstable index URL")
-			log.Printf("Error parsing index destination URL %s: %s", sstPath, err)
+				trace.StringAttribute("path", sstPath+".idx"))
+			span.Annotate(nil, "Error generating output sstable index URL")
+			log.Printf("Error parsing index destination URL %s: %s",
+				sstPath+".idx", err)
 			majorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
 			return
 		}
 
 		if outidx, err = filesystem.OpenWriter(ctx, uidx); err != nil {
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", err.Error()),
-				trace.StringAttribute("path", usst.String()),
-			}, "Error opening output sstable index writer")
-			log.Printf("Error opening destination index %s: %s", sstPath, err)
+				trace.StringAttribute("path", uidx.String()))
+			span.Annotate(nil, "Error opening output sstable index writer")
+			log.Printf("Error opening destination index %s: %s",
+				uidx.String(), err)
 			majorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
 			return
@@ -1970,9 +1973,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 			sstable.IndexType_EVERY_N, 32)
 
 		if size, err = reg.mergeLogsToSstable(ctx, a, b, out); err != nil {
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Error merging log to sstable")
+			span.AddAttributes(
+				trace.StringAttribute("prefix", sstPath),
+				trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error merging log to sstable")
 			log.Printf("Error sorting sstable %s: %s", sstPath, err)
 			minorCompactionsFailed.Inc()
 			filesystem.Remove(ctx, usst)
@@ -1981,11 +1985,11 @@ func (reg *ServingRangeRegistry) minorCompaction(
 		}
 
 		if !info.JournalLock.LockWithContext(ctx) {
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("path", usst.String()),
-				trace.StringAttribute("error", ctx.Err().Error()),
-			}, "Context expired")
-			log.Print("Context expired while merging sstable")
+			span.AddAttributes(
+				trace.StringAttribute("prefix", sstPath),
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
+			log.Print("Context expired while merging sstable: ", sstPath)
 			return
 		}
 
@@ -2004,9 +2008,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 			var encData []byte
 
 			if ctx.Err() != nil {
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", ctx.Err().Error()),
-				}, "Context expired")
+				span.AddAttributes(
+					trace.StringAttribute("etcd-path", etcdPath),
+					trace.StringAttribute("error", ctx.Err().Error()))
+				span.Annotate(nil, "Context expired")
 				log.Print("Error writing back updated table ", table, " to ",
 					etcdPath, ": ", err)
 				info.JournalLock.Unlock()
@@ -2018,9 +2023,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 
 			if gresp, err = reg.etcdClient.Get(
 				ctx, etcdPath, etcd.WithLimit(1)); err != nil {
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", err.Error()),
-				}, "Error communicating with etcd")
+				span.AddAttributes(
+					trace.StringAttribute("etcd-path", etcdPath),
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Error communicating with etcd")
 				log.Print("Error fetching metadata ", etcdPath,
 					" from etcd: ", err)
 				info.JournalLock.Unlock()
@@ -2032,9 +2038,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 
 			for _, ev = range gresp.Kvs {
 				if err = proto.Unmarshal(ev.Value, &md); err != nil {
-					span.Annotate([]trace.Attribute{
-						trace.StringAttribute("error", err.Error()),
-					}, "Table metadata corrupted")
+					span.AddAttributes(
+						trace.StringAttribute("etcd-path", etcdPath),
+						trace.StringAttribute("error", err.Error()))
+					span.Annotate(nil, "Table metadata corrupted")
 					log.Print("Error parsing table metadata in ", etcdPath,
 						": ", err)
 					info.JournalLock.Unlock()
@@ -2078,9 +2085,10 @@ func (reg *ServingRangeRegistry) minorCompaction(
 			}
 
 			if encData, err = proto.Marshal(&md); err != nil {
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", err.Error()),
-				}, "Error marshalling table metadata")
+				span.AddAttributes(
+					trace.StringAttribute("etcd-path", etcdPath),
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Error marshalling table metadata")
 				log.Print("Error encoding updated metadata for ", table,
 					": ", err)
 				info.JournalLock.Unlock()
@@ -2094,9 +2102,11 @@ func (reg *ServingRangeRegistry) minorCompaction(
 				etcd.Compare(etcd.ModRevision(etcdPath), "=", modrev),
 				etcd.Compare(etcd.Version(etcdPath), "=", version)).Then(
 				etcd.OpPut(etcdPath, string(encData))).Commit(); err != nil {
-				span.Annotate([]trace.Attribute{
-					trace.StringAttribute("error", err.Error()),
-				}, "Error updating table metadata (temporary)")
+				span.AddAttributes(
+					trace.StringAttribute("etcd-path", etcdPath),
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(
+					nil, "Error updating table metadata (temporary)")
 				log.Printf("Error committing update to %s: %s", etcdPath, err)
 				continue
 			}
@@ -2154,7 +2164,8 @@ func (reg *ServingRangeRegistry) findSortableLogs() {
 		var span *trace.Span
 
 		ctx, span = trace.StartSpan(
-			context.Background(), "red-cloud.ServingRangeRegistry/findSortableLogs")
+			context.Background(),
+			"red-cloud.ServingRangeRegistry/findSortableLogs")
 
 		for table, tablets = range reg.columnFamilies {
 			var cfs map[string]*sstableInfo

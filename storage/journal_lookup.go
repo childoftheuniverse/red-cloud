@@ -73,12 +73,11 @@ func LookupInJournal(parentCtx context.Context, path string, columns []string,
 	*/
 	defer markDone(done)
 
+	span.AddAttributes(trace.StringAttribute("path", path))
+
 	if u, err = url.Parse(path); err != nil {
-		span.Annotate(
-			[]trace.Attribute{
-				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Invalid journal path URL")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Invalid journal path URL")
 		journalLookupErrors.With(
 			prometheus.Labels{"error_class": "parse_file_name"}).Inc()
 		errors <- err
@@ -86,11 +85,8 @@ func LookupInJournal(parentCtx context.Context, path string, columns []string,
 	}
 
 	if f, err = filesystem.OpenReader(ctx, u); err != nil {
-		span.Annotate(
-			[]trace.Attribute{
-				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to open journal for reading")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Unable to open journal for reading")
 		journalLookupErrors.With(
 			prometheus.Labels{"error_class": "open_journal_readonly"}).Inc()
 		errors <- err
@@ -110,9 +106,9 @@ func LookupInJournal(parentCtx context.Context, path string, columns []string,
 			it from the context as well.
 		*/
 		if ctx.Err() != nil {
-			span.Annotate(
-				[]trace.Attribute{trace.StringAttribute("error", ctx.Err().Error())},
-				"Context expired")
+			span.AddAttributes(
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
 			journalLookupErrors.With(
 				prometheus.Labels{"error_class": "context_expired"}).Inc()
 			return
@@ -123,11 +119,8 @@ func LookupInJournal(parentCtx context.Context, path string, columns []string,
 			span.Annotate(nil, "End of File reached before data")
 			return
 		} else if err != nil {
-			span.Annotate(
-				[]trace.Attribute{
-					trace.StringAttribute("path", path),
-					trace.StringAttribute("error", err.Error()),
-				}, "Error reading message from journal")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error reading message from journal")
 			journalLookupErrors.With(
 				prometheus.Labels{"error_class": "read_error"}).Inc()
 			errors <- err

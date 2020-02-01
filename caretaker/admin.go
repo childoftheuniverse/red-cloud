@@ -68,7 +68,7 @@ func (adm *AdminService) CreateTable(
 		Name:    table.Name,
 		TableMd: table,
 		Tablet: []*redcloud.ServerTabletMetadata{
-			&redcloud.ServerTabletMetadata{
+			{
 				StartKey: []byte{},
 				EndKey:   []byte{},
 			},
@@ -113,9 +113,8 @@ func (adm *AdminService) CreateTable(
 			"method":      "CreateTable",
 			"error_class": "metadata_marshal_error",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Metadata marshalling error")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Metadata marshalling error")
 		return &redcloud.Empty{}, fmt.Errorf(
 			"Unable to encode new table metadata: %s", err)
 	}
@@ -127,9 +126,8 @@ func (adm *AdminService) CreateTable(
 			"method":      "CreateTable",
 			"error_class": "etcd_communication_errors",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error writing to etcd")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error writing to etcd")
 		return &redcloud.Empty{}, err
 	}
 
@@ -140,10 +138,10 @@ func (adm *AdminService) CreateTable(
 				"method":      "CreateTable",
 				"error_class": "context_expired",
 			}).Inc()
-			span.Annotate([]trace.Attribute{
+			span.AddAttributes(
 				trace.StringAttribute("error", ctx.Err().Error()),
-				trace.Int64Attribute("attempt", int64(i)),
-			}, "Context expired")
+				trace.Int64Attribute("attempt", int64(i)))
+			span.Annotate(nil, "Context expired")
 			return &redcloud.Empty{}, ctx.Err()
 		}
 
@@ -153,9 +151,8 @@ func (adm *AdminService) CreateTable(
 				"method":      "CreateTable",
 				"error_class": "no_free_data_nodes",
 			}).Inc()
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to find available data node")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Unable to find available data node")
 			return &redcloud.Empty{}, err
 		}
 		ts = redcloud.NewDataNodeMetadataServiceClient(client)
@@ -171,9 +168,8 @@ func (adm *AdminService) CreateTable(
 				"method":      "CreateTable",
 				"error_class": "server_refused",
 			}).Inc()
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Tablet server reports error")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Tablet server reports error")
 			return &redcloud.Empty{}, err
 		}
 
@@ -213,9 +209,8 @@ func (adm *AdminService) UpdateTable(
 			"method":      "UpdateTable",
 			"error_space": "etcd_communication_errors",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error communicating with etcd")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error communicating with etcd")
 		return &redcloud.Empty{}, err
 	}
 
@@ -227,9 +222,8 @@ func (adm *AdminService) UpdateTable(
 				"method":      "UpdateTable",
 				"error_space": "tablet_metadata_corruption",
 			}).Inc()
-			span.Annotate([]trace.Attribute{
-				trace.StringAttribute("error", err.Error()),
-			}, "Error parsing original table metadata")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error parsing original table metadata")
 			return &redcloud.Empty{}, fmt.Errorf(
 				"Unable to parse old metadata: %s", err)
 		}
@@ -246,9 +240,8 @@ func (adm *AdminService) UpdateTable(
 			"method":      "UpdateTable",
 			"error_space": "metadata_marshal_error",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Metadata marshalling error")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Metadata marshalling error")
 		return &redcloud.Empty{}, fmt.Errorf(
 			"Unable to encode new table metadata: %s", err)
 	}
@@ -263,9 +256,8 @@ func (adm *AdminService) UpdateTable(
 			"method":      "UpdateTable",
 			"error_space": "etcd_communication_errors",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "etcd communication failed (update transaction)")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "etcd communication failed (update transaction)")
 		return &redcloud.Empty{}, err
 	}
 
@@ -274,9 +266,8 @@ func (adm *AdminService) UpdateTable(
 			"method":      "UpdateTable",
 			"error_space": "etcd_txn_failed",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "etcd metadata update transaction failed")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "etcd metadata update transaction failed")
 		return &redcloud.Empty{}, fmt.Errorf(
 			"Error updating %s: concurrent update", etcdPath)
 	}
@@ -313,9 +304,8 @@ func (adm *AdminService) DeleteTable(
 			"method":      "DeleteTable",
 			"error_space": "etcd_communication_errors",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error communicating with etcd")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error communicating with etcd")
 	}
 	return &redcloud.Empty{}, err
 }

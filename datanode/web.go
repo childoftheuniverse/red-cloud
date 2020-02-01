@@ -119,9 +119,8 @@ func (s *StatusWebService) ServeHTTP(
 	}
 
 	if err = mainStatusTemplate.Execute(rw, mainData); err != nil {
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error executing web status page template")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error executing web status page template")
 		log.Print("Error sending status page: ", err)
 	}
 }

@@ -98,9 +98,8 @@ func (dns *DataNodeService) Get(
 			"method":      "Get",
 			"error_class": "get_sstable_path_description",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error fetching sstable path")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error fetching sstable path")
 		return nil, err
 	}
 
@@ -185,9 +184,9 @@ func (dns *DataNodeService) Get(
 			"method":      "Get",
 			"error_class": "lookup_errors",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.Int64Attribute("num-errors", int64(len(allErrors))),
-		}, "Read errors encountered")
+		span.AddAttributes(
+			trace.Int64Attribute("num-errors", int64(len(allErrors))))
+		span.Annotate(nil, "Read errors encountered")
 		return result, grpc.Errorf(codes.Internal,
 			strings.Join(allErrors, "; "))
 	}
@@ -251,9 +250,8 @@ func (dns *DataNodeService) GetRange(
 			"method":      "GetRange",
 			"error_class": "get_sstable_path_description",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error fetching sstable path")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error fetching sstable path")
 		return err
 	}
 
@@ -350,9 +348,9 @@ func (dns *DataNodeService) GetRange(
 			"method":      "GetRange",
 			"error_class": "lookup_errors",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.Int64Attribute("num-errors", int64(len(allErrors))),
-		}, "Read errors encountered")
+		span.AddAttributes(
+			trace.Int64Attribute("num-errors", int64(len(allErrors))))
+		span.Annotate(nil, "Read errors encountered")
 		return grpc.Errorf(codes.Internal,
 			strings.Join(allErrors, "; "))
 	}
@@ -403,9 +401,8 @@ func (dns *DataNodeService) Insert(
 			"method":      "Insert",
 			"error_class": "get_journal_writer_failed",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error setting up journal writer")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error setting up journal writer")
 		return &redcloud.Empty{}, err
 	}
 
@@ -415,9 +412,8 @@ func (dns *DataNodeService) Insert(
 			"method":      "Insert",
 			"error_class": "write_message_failed",
 		}).Inc()
-		span.Annotate([]trace.Attribute{
-			trace.StringAttribute("error", err.Error()),
-		}, "Error writing inserted data to journal")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error writing inserted data to journal")
 	} else {
 		dns.rangeRegistry.ReportJournalUsage(
 			ctx, req.Table, req.ColumnFamily, req.Key, int64(proto.Size(&cf)))

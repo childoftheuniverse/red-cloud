@@ -243,23 +243,27 @@ func (s *StatusWebService) ServeHTTP(
 		}
 		var err error
 
+		span.AddAttributes(
+			trace.StringAttribute("target-address", req.FormValue("id")))
+
 		if nodeData.Node = s.registry.GetNodeByAddress(
 			ctx, req.FormValue("id")); nodeData.Node == nil {
-			span.Annotate(
-				[]trace.Attribute{
-					trace.StringAttribute("target-address", req.FormValue("id")),
-				}, "Node not found")
+			span.Annotate(nil, "Node not found")
 			http.Error(rw, "No such node", http.StatusNotFound)
 			return
 		}
 
 		if nodeData.Tablets, err = s.registry.GetNodeTablets(
 			ctx, req.FormValue("id")); err != nil {
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error determining tablets held")
 			log.Print("Error determining tablets held by ",
 				req.FormValue("id"), ": ", err)
 		}
 
 		if err = nodeTemplate.Execute(rw, nodeData); err != nil {
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error sending node status page")
 			log.Print("Error sending node status page: ", err)
 		}
 	} else if req.URL.Path == "/table" {
@@ -271,17 +275,20 @@ func (s *StatusWebService) ServeHTTP(
 		}
 		var err error
 
+		span.AddAttributes(
+			trace.StringAttribute("table", req.FormValue("id")))
+
 		if tableData.Tablets, err = s.registry.GetTablets(
 			ctx, req.FormValue("id")); err != nil {
-			span.Annotate(
-				[]trace.Attribute{
-					trace.StringAttribute("table", req.FormValue("id")),
-				}, "Error requesting table metadata")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error requesting table metadata")
 			log.Print("Error determining the tablets in table ",
 				req.FormValue("id"), ": ", err)
 		}
 
 		if err = tableStatusTemplate.Execute(rw, tableData); err != nil {
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error sending table status page")
 			log.Print("Error sending table status page: ", err)
 		}
 	} else {
@@ -297,6 +304,8 @@ func (s *StatusWebService) ServeHTTP(
 		mainData.Alive, mainData.Dead = s.registry.GetNodeLists(ctx)
 
 		if mds, err = s.registry.GetTableList(ctx); err != nil {
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error fetching table list")
 			log.Print("Error fetching table list: ", err)
 		}
 
@@ -305,6 +314,8 @@ func (s *StatusWebService) ServeHTTP(
 		}
 
 		if err = mainStatusTemplate.Execute(rw, mainData); err != nil {
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Error sending status page")
 			log.Print("Error sending status page: ", err)
 		}
 	}

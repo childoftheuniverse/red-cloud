@@ -64,6 +64,8 @@ func LookupInSstable(parentCtx context.Context, path string, columns []string,
 	defer span.End()
 	sstableLookups.Inc()
 
+	span.AddAttributes(trace.StringAttribute("path", path))
+
 	/*
 		As soon as this function exits, successul or not, there's no point in
 		waiting for the result any longer.
@@ -71,22 +73,16 @@ func LookupInSstable(parentCtx context.Context, path string, columns []string,
 	defer markDone(done)
 
 	if sstu, err = url.Parse(path + ".sst"); err != nil {
-		span.Annotate(
-			[]trace.Attribute{
-				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Invalid sstable path URL")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Invalid sstable path URL")
 		sstableLookupErrors.With(
 			prometheus.Labels{"error_class": "parse_file_name"}).Inc()
 		errors <- err
 		return
 	}
 	if sst, err = filesystem.OpenReader(ctx, sstu); err != nil {
-		span.Annotate(
-			[]trace.Attribute{
-				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to open sstable for reading")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Unable to open sstable for reading")
 		sstableLookupErrors.With(
 			prometheus.Labels{"error_class": "open_sstable_readonly"}).Inc()
 		errors <- err
@@ -95,22 +91,16 @@ func LookupInSstable(parentCtx context.Context, path string, columns []string,
 	defer sst.Close(ctx)
 
 	if idxu, err = url.Parse(path + ".idx"); err != nil {
-		span.Annotate(
-			[]trace.Attribute{
-				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Invalid sstable index path URL")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Invalid sstable index path URL")
 		sstableLookupErrors.With(
 			prometheus.Labels{"error_class": "parse_file_name"}).Inc()
 		errors <- err
 		return
 	}
 	if idx, err = filesystem.OpenReader(ctx, idxu); err != nil {
-		span.Annotate(
-			[]trace.Attribute{
-				trace.StringAttribute("path", path),
-				trace.StringAttribute("error", err.Error()),
-			}, "Unable to open sstable index for reading")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Unable to open sstable index for reading")
 		sstableLookupErrors.With(
 			prometheus.Labels{"error_class": "open_sstable_readonly"}).Inc()
 		errors <- err

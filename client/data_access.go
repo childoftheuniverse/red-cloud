@@ -130,9 +130,8 @@ func (d *DataAccessClient) getRangeClients(
 	md = new(redcloud.ServerTableMetadata)
 	if resp, err = d.etcdClient.Get(
 		ctx, common.EtcdTableConfigPath(d.instance, table)); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"Error communicating with etcd")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error communicating with etcd")
 		return []*grpc.ClientConn{}, err
 	}
 
@@ -142,9 +141,8 @@ func (d *DataAccessClient) getRangeClients(
 	}
 
 	if err = proto.Unmarshal(resp.Kvs[0].Value, md); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"Table metadata corruption detected")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Table metadata corruption detected")
 		return []*grpc.ClientConn{}, err
 	}
 
@@ -163,11 +161,10 @@ func (d *DataAccessClient) getRangeClients(
 
 		if client, ok = d.clientConnCache[hostPort]; !ok {
 			if client, err = grpc.Dial(hostPort, dialOpts...); err != nil {
-				span.Annotate(
-					[]trace.Attribute{
-						trace.StringAttribute("failing-host", hostPort),
-						trace.StringAttribute("error", err.Error()),
-					}, "Data node connection failed")
+				span.AddAttributes(
+					trace.StringAttribute("failing-host", hostPort),
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Data node connection failed")
 				return []*grpc.ClientConn{}, err
 			}
 		}
@@ -224,9 +221,9 @@ func (d *DataAccessClient) Get(
 					return nil, err
 				}
 			} else if err != nil {
-				span.Annotate(
-					[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-					"Error communicating with data node")
+				span.AddAttributes(
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Error communicating with data node")
 				return nil, err
 			} else {
 				return col, nil
@@ -234,9 +231,9 @@ func (d *DataAccessClient) Get(
 		}
 
 		if ctx.Err() != nil {
-			span.Annotate(
-				[]trace.Attribute{trace.StringAttribute("error", ctx.Err().Error())},
-				"Context expired")
+			span.AddAttributes(
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
 			return nil, ctx.Err()
 		}
 	}
@@ -268,18 +265,17 @@ func (d *DataAccessClient) GetRange(
 		var rstream redcloud.DataNodeService_GetRangeClient
 
 		if rstream, err = dnsc.GetRange(ctx, req, opts...); err != nil {
-			span.Annotate(
-				[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-				"Data node communication error")
+			span.AddAttributes(trace.StringAttribute("error", err.Error()))
+			span.Annotate(nil, "Data node communication error")
 			return err
 		}
 
 		for {
 			var colset *redcloud.ColumnSet
 			if colset, err = rstream.Recv(); err != nil {
-				span.Annotate(
-					[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-					"Data node result stream error")
+				span.AddAttributes(
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Data node result stream error")
 				return err
 			} else if colset == nil {
 				break
@@ -316,10 +312,10 @@ func (d *DataAccessClient) Insert(
 	}
 
 	if len(conns) > 1 {
+		span.AddAttributes(
+			trace.Int64Attribute("num-range-covers", int64(len(conns))))
 		span.Annotate(
-			[]trace.Attribute{
-				trace.Int64Attribute("num-range-covers", int64(len(conns))),
-			}, "More than one range cover registered for a single key")
+			nil, "More than one range cover registered for a single key")
 		return fmt.Errorf("Error: multiple data nodes registered for key? %v",
 			req)
 	}
@@ -337,9 +333,9 @@ func (d *DataAccessClient) Insert(
 					return err
 				}
 			} else if err != nil {
-				span.Annotate(
-					[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-					"Data node communication error")
+				span.AddAttributes(
+					trace.StringAttribute("error", err.Error()))
+				span.Annotate(nil, "Data node communication error")
 				return err
 			} else {
 				return nil
@@ -348,9 +344,9 @@ func (d *DataAccessClient) Insert(
 
 		// Check TTL / RPC cancelled.
 		if ctx.Err() != nil {
-			span.Annotate(
-				[]trace.Attribute{trace.StringAttribute("error", ctx.Err().Error())},
-				"Context expired")
+			span.AddAttributes(
+				trace.StringAttribute("error", ctx.Err().Error()))
+			span.Annotate(nil, "Context expired")
 			return ctx.Err()
 		}
 	}

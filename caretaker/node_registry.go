@@ -317,9 +317,8 @@ func (r *DataNodeRegistry) Add(
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(tlsCreds))
 	}
 	if client, err = grpc.Dial(tgt, dialOpts...); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"Node cannot be reached")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Node cannot be reached")
 		numNodesAdditionErrors.With(
 			prometheus.Labels{"error_class": "unreachable"}).Inc()
 		return err
@@ -327,9 +326,8 @@ func (r *DataNodeRegistry) Add(
 	tsc = redcloud.NewDataNodeMetadataServiceClient(client)
 
 	if status, err = tsc.GetServerStatus(ctx, &redcloud.Empty{}); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"Node cannot respond to GetServerStatus")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Node cannot respond to GetServerStatus")
 		numNodesAdditionErrors.With(
 			prometheus.Labels{"error_class": "rpc_failed"}).Inc()
 		return err
@@ -457,18 +455,16 @@ func (r *DataNodeRegistry) GetTablets(parentCtx context.Context, table string) (
 	if resp, err = r.etcdClient.Get(
 		etcdContext,
 		common.EtcdTableConfigPath(r.instance, table)); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"etcd communication error")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "etcd communication error")
 		etcdCommunicationErrors.Inc()
 		return nil, err
 	}
 
 	for _, kv = range resp.Kvs {
 		if err = proto.Unmarshal(kv.Value, foundTable); err != nil {
-			span.Annotate(
-				[]trace.Attribute{trace.StringAttribute("md-key", string(kv.Key))},
-				"metadata corruption")
+			span.AddAttributes(trace.StringAttribute("md-key", string(kv.Key)))
+			span.Annotate(nil, "metadata corruption")
 			metadataCorruptionDetected.Inc()
 			return nil, fmt.Errorf("%s: table metadata looks corrupted",
 				string(kv.Key))
@@ -503,9 +499,8 @@ func (r *DataNodeRegistry) GetNodeTablets(
 	span.AddAttributes(trace.StringAttribute("target-address", address))
 
 	if mds, err = r.GetTableList(ctx); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"Error fetching table list")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error fetching table list")
 		return nil, err
 	}
 
@@ -535,12 +530,11 @@ func (r *DataNodeRegistry) GetNodeTablets(
 		}
 	}
 
-	span.Annotate(
-		[]trace.Attribute{
-			trace.Int64Attribute("tables-scanned", tables),
-			trace.Int64Attribute("tablets-scanned", tablets),
-			trace.Int64Attribute("matches-found", matches),
-		}, "Tablet scan finished")
+	span.AddAttributes(
+		trace.Int64Attribute("tables-scanned", tables),
+		trace.Int64Attribute("tablets-scanned", tablets),
+		trace.Int64Attribute("matches-found", matches))
+	span.Annotate(nil, "Tablet scan finished")
 
 	return rv, nil
 }
@@ -621,9 +615,8 @@ func (r *DataNodeRegistry) GetTableList(parentCtx context.Context) (
 	if resp, err = r.etcdClient.Get(
 		etcdContext, common.EtcdTableConfigPath(r.instance, ""),
 		etcd.WithPrefix()); err != nil {
-		span.Annotate(
-			[]trace.Attribute{trace.StringAttribute("error", err.Error())},
-			"Error communicating with etcd")
+		span.AddAttributes(trace.StringAttribute("error", err.Error()))
+		span.Annotate(nil, "Error communicating with etcd")
 		etcdCommunicationErrors.Inc()
 		return nil, err
 	}
@@ -631,9 +624,8 @@ func (r *DataNodeRegistry) GetTableList(parentCtx context.Context) (
 	for _, kv = range resp.Kvs {
 		var md = new(redcloud.ServerTableMetadata)
 		if err = proto.Unmarshal(kv.Value, md); err != nil {
-			span.Annotate(
-				[]trace.Attribute{trace.StringAttribute("md-key", string(kv.Key))},
-				"metadata corruption")
+			span.AddAttributes(trace.StringAttribute("md-key", string(kv.Key)))
+			span.Annotate(nil, "metadata corruption")
 			metadataCorruptionDetected.Inc()
 			return nil, fmt.Errorf("%s: table metadata looks corrupted",
 				string(kv.Key))
