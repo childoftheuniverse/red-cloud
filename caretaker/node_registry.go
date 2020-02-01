@@ -292,10 +292,8 @@ func (r *DataNodeRegistry) Add(
 	var host string
 	var err error
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		ctx, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/Add")
-	}
+	ctx, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/Add")
 	defer span.End()
 
 	span.AddAttributes(
@@ -369,10 +367,8 @@ func (r *DataNodeRegistry) Remove(
 	var ok bool
 	var i int
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		_, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/Remove")
-	}
+	_, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/Remove")
 	defer span.End()
 
 	span.AddAttributes(
@@ -415,10 +411,8 @@ func (r *DataNodeRegistry) GetNodeByAddress(
 	var rv *DataNode
 	var ok bool
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		_, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/GetNodeByAddress")
-	}
+	_, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/GetNodeByAddress")
 	defer span.End()
 
 	span.AddAttributes(
@@ -451,10 +445,8 @@ func (r *DataNodeRegistry) GetTablets(parentCtx context.Context, table string) (
 	var span *trace.Span
 	var err error
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		ctx, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/GetNodeByAddress")
-	}
+	ctx, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/GetTablets")
 	defer span.End()
 
 	span.AddAttributes(
@@ -504,10 +496,8 @@ func (r *DataNodeRegistry) GetNodeTablets(
 	var matches int64
 	var err error
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		ctx, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/GetNodeTablets")
-	}
+	ctx, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/GetNodeTablets")
 	defer span.End()
 
 	span.AddAttributes(trace.StringAttribute("target-address", address))
@@ -565,10 +555,9 @@ func (r *DataNodeRegistry) GetNextFreeDataNode(
 	var span *trace.Span
 	var ts *DataNode
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		_, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/GetNextFreeDataNode")
-	}
+	_, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/GetNextFreeDataNode")
+	defer span.End()
 
 	span.Annotate(nil, "Acquiring registry lock")
 	r.lock.RLock()
@@ -598,10 +587,8 @@ func (r *DataNodeRegistry) GetNodeLists(
 	parentCtx context.Context) ([]*DataNode, []*DataNode) {
 	var span *trace.Span
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		_, span = trace.StartSpan(
-			parentCtx, "tbd.childoftheuniverse.github.com/GetNodeLists")
-	}
+	_, span = trace.StartSpan(
+		parentCtx, "tbd.childoftheuniverse.github.com/GetNodeLists")
 	defer span.End()
 
 	span.Annotate(nil, "Attempting to acquire read lock")
@@ -625,10 +612,8 @@ func (r *DataNodeRegistry) GetTableList(parentCtx context.Context) (
 	var kv *mvccpb.KeyValue
 	var err error
 
-	if span = trace.FromContext(parentCtx); span == nil {
-		ctx, span = trace.StartSpan(
-			parentCtx, "red-cloud.DataNodeRegistry/GetTableList")
-	}
+	ctx, span = trace.StartSpan(
+		parentCtx, "red-cloud.DataNodeRegistry/GetTableList")
 	defer span.End()
 
 	etcdContext, _ = context.WithTimeout(ctx, 10*time.Second)
@@ -676,6 +661,7 @@ func (r *DataNodeRegistry) updateNodeList(parentCtx context.Context) {
 	/* Unconditionally start a new span. */
 	ctx, span = trace.StartSpan(
 		parentCtx, "red-cloud.DataNodeRegistry/updateNodeList")
+	defer span.End()
 
 	span.Annotate(nil, "Attempting to require registry read lock")
 	r.lock.RLock()
@@ -795,6 +781,7 @@ func (r *DataNodeRegistry) updateTabletList(parentCtx context.Context) {
 	/* Unconditionally start a new span. */
 	ctx, span = trace.StartSpan(
 		parentCtx, "red-cloud.DataNodeRegistry/updateTabletList")
+	span.End()
 
 	// None of this makes any sense if we have no nodes to load things on.
 	if len(r.alive) == 0 {
@@ -912,7 +899,6 @@ func (r *DataNodeRegistry) registryMaintenance() {
 		runTime = time.Now().Sub(startTime)
 		numMaintenanceRuns.Inc()
 		maintenanceLatencyTotal.Add(runTime.Seconds())
-		log.Print("Maintenance run took ", runTime)
 
 		// We want to leave at least 30 seconds between two runs.
 		time.Sleep(30 * time.Second)
