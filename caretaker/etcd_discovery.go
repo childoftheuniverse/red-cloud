@@ -9,8 +9,10 @@ import (
 
 	"context"
 	"github.com/childoftheuniverse/etcd-discovery"
+	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 var numChangeReports = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -25,10 +27,31 @@ var numChangeErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name:      "num_change_report_errors",
 	Help:      "Number of errors watching etcd for changes",
 }, []string{"error_type"})
+var numEtcdHBCommErrors = prometheus.NewCounter(prometheus.CounterOpts{
+	Namespace: "red_cloud",
+	Subsystem: "caretaker_etcd_node_discovery",
+	Name:      "num_etcd_hb_communication_errors",
+	Help:      "Number of etcd communication errors checking for uncovered nodes",
+})
+var numHBProtoParsingErrors = prometheus.NewCounter(prometheus.CounterOpts{
+	Namespace: "red_cloud",
+	Subsystem: "caretaker_etcd_node_discovery",
+	Name:      "num_hb_proto_parsing_errors",
+	Help:      "Number of errors parsing discovery protocol buffers for heartbeat",
+})
+var numHBPeersDiscovered = prometheus.NewCounter(prometheus.CounterOpts{
+	Namespace: "red_cloud",
+	Subsystem: "caretaker_etcd_node_discovery",
+	Name:      "num_hb_peers_discovered",
+	Help:      "Number of peers discovered via heartbeat rather than discovery",
+})
 
 func init() {
 	prometheus.MustRegister(numChangeReports)
 	prometheus.MustRegister(numChangeErrors)
+	prometheus.MustRegister(numEtcdHBCommErrors)
+	prometheus.MustRegister(numHBProtoParsingErrors)
+	prometheus.MustRegister(numHBPeersDiscovered)
 }
 
 /*
@@ -48,15 +71,64 @@ client and feeding them into the specified DataNodeRegistry.
 */
 func NewEtcdExportedNodeDiscoveryStrategy(dnr *DataNodeRegistry,
 	etcdClient *etcd.Client, instance string) *EtcdExportedNodeDiscoveryStrategy {
+	var path = fmt.Sprintf("/ns/service/red-cloud/%s/data-node/", instance)
 	var strategy = &EtcdExportedNodeDiscoveryStrategy{
-		path: fmt.Sprintf(
-			"/ns/service/red-cloud/%s/data-node/", instance),
+		path:       path,
 		dnr:        dnr,
 		etcdClient: etcdClient,
 	}
-	discovery.MonitorExportedService(etcdClient, etcdClient, fmt.Sprintf(
-		"/ns/service/red-cloud/%s/data-node/", instance), strategy)
+	discovery.MonitorExportedService(etcdClient, etcdClient, path, strategy)
+	go strategy.monitorMissingNodes()
 	return strategy
+}
+
+/*
+monitorMissingNodes
+*/
+func (s *EtcdExportedNodeDiscoveryStrategy) monitorMissingNodes() {
+	for {
+		var resp *etcd.GetResponse
+		var record *mvccpb.KeyValue
+		var ctx context.Context
+		var cancel context.CancelFunc
+		var err error
+
+		time.Sleep(5 * time.Minute)
+
+		ctx, cancel = context.WithTimeout(context.Background(),
+			20*time.Second)
+		defer cancel()
+
+		if resp, err = s.etcdClient.Get(
+			ctx, s.path, etcd.WithPrefix()); err != nil {
+			log.Print("Error communicating with etcd on ", s.path, ": ", err)
+			numEtcdHBCommErrors.Inc()
+			continue
+		}
+
+		for _, record = range resp.Kvs {
+			var hostPort discovery.ExportedServiceRecord
+			var peerAddr string
+
+			if err = proto.Unmarshal(record.Value, &hostPort); err != nil {
+				log.Print("Error parsing etcd discovery record for host ",
+					string(record.Key), ": ", err)
+				numHBProtoParsingErrors.Inc()
+				break
+			}
+
+			peerAddr = net.JoinHostPort(
+				hostPort.Address, strconv.Itoa(int(hostPort.Port)))
+
+			if s.dnr.GetNodeByAddress(ctx, peerAddr) == nil {
+				numHBPeersDiscovered.Inc()
+				log.Print("Adding node ", string(record.Key), " (", peerAddr, ")")
+				if err = s.dnr.Add(ctx, hostPort.Protocol, peerAddr); err != nil {
+					log.Print("Error adding node ", peerAddr, ": ", err)
+				}
+			}
+		}
+	}
 }
 
 /*
